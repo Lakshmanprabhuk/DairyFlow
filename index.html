@@ -51,12 +51,12 @@ button{font:inherit}
 .bar img{width:38px;height:38px;border-radius:8px;background:#fff}
 .bar .brand{font-size:21px;font-weight:700;cursor:pointer}.bar .brand span{color:var(--sky)}
 .mods{display:flex;gap:2px;overflow-x:auto;flex:1;scrollbar-width:thin}
-.mods button{background:none;border:0;color:#BFD3DB;padding:9px 11px;border-radius:5px;cursor:pointer;white-space:nowrap;font-weight:500;font-size:14.5px;min-height:40px}
+.mods button{flex:none;background:none;border:0;color:#BFD3DB;padding:9px 11px;border-radius:5px;cursor:pointer;white-space:nowrap;font-weight:500;font-size:14.5px;min-height:40px}
 .mods button.on{background:rgba(64,188,243,.18);color:#fff}
 .me{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:0;color:#fff;border-radius:22px;padding:4px 12px 4px 4px;cursor:pointer;min-height:40px}
 .me .av{width:32px;height:32px;font-size:12px;background:var(--sky);color:#0D2733}
 /* home */
-.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-top:22px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));gap:14px;margin-top:22px}
 .tile{text-align:left;padding:18px;cursor:pointer;color:inherit;display:flex;flex-direction:column;gap:6px;min-height:170px}
 .tile:hover,.tile:focus-visible{border-color:var(--sky);outline:none;box-shadow:0 4px 14px rgba(31,55,65,.1)}
 .tile svg{width:30px;height:30px;color:var(--skyd)}
@@ -90,7 +90,7 @@ a.cl{color:var(--skyd);font-weight:700;cursor:pointer;text-decoration:none}a.cl:
 .rows .bar{grid-column:1/-1;height:6px;background:var(--line);border-radius:3px;overflow:hidden}.rows .bar i{display:block;height:100%;background:var(--sky);border-radius:3px}
 .alert{border-left:4px solid var(--red);background:light-dark(#FDF3F3,#2A1A1C);padding:10px 14px;border-radius:6px;margin:8px 0;font-size:15px}
 .alert.a{border-color:var(--amber);background:light-dark(#FFF8EA,#2A2416)}.alert.o{border-color:var(--orange);background:light-dark(#FFF4EC,#2A1F17)}.alert.g{border-color:var(--green);background:light-dark(#EFF8F3,#15281F)}.alert.s{border-color:var(--sky);background:var(--soft)}
-.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:14.5px}.kv span{color:var(--mute)}.kv b{text-align:right;font-weight:700}
+.kv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;font-size:14.5px}.kv span{color:var(--mute)}.kv b{text-align:right;font-weight:700;white-space:nowrap}
 /* map */
 .stage{display:grid;grid-template-columns:minmax(0,1fr) 350px;background:#0B171D;border-radius:10px;overflow:hidden;border:1px solid #1E323B;min-height:600px}
 .mapwrap{position:relative;min-height:600px;touch-action:none}
@@ -128,6 +128,11 @@ dialog::backdrop{background:rgba(5,15,20,.6)}
 footer{color:var(--mute);font-size:13px;text-align:center;padding:22px}footer b{color:var(--ink)}
 #err{display:none;background:#fff3f3;color:#8a1f1f;padding:14px;border-radius:8px;margin:12px}
 @media(max-width:1000px){.stage{grid-template-columns:minmax(0,1fr)}.side{max-height:none;border-left:0;border-top:1px solid #1E323B}.cols{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:900px){.bar .in{gap:8px 10px;padding-bottom:4px}.me{margin-left:auto}
+ .mods{order:3;flex:1 0 100%;margin:0 calc(-1 * max(3vw,16px));padding:0 max(3vw,16px) 4px;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 16px,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(90deg,transparent 0,#000 16px,#000 calc(100% - 32px),transparent)}
+ .mods::-webkit-scrollbar{display:none}.mods button{padding:8px 12px}}
+@media(max-width:600px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{padding:12px 13px}.kpi .v{font-size:21px}.kpi .l,.kpi .s{font-size:12.5px}}
+@media(max-width:380px){.me .nm{display:none}.me{padding-right:4px}.bar .brand{font-size:19px}}
 @media(max-width:700px){.bar{position:static}.mapwrap{min-height:470px}.legend{display:none}.login .logo{width:48px;height:48px;top:18px;right:18px}}
 @media(max-width:600px){table{font-size:13.5px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:9em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:8.5em;margin-inline-start:-9em;color:var(--mute);font-size:12.5px;white-space:normal}.stack td:empty{display:none}.stack td.n{text-align:start}.stack tfoot td{padding-inline-start:0}}
 #ldr{text-align:center;padding:8px 0 4px}#ldr .cow{width:64px;height:64px;border-radius:16px;animation:ldrP 1.6s ease-in-out infinite}
@@ -313,8 +318,8 @@ async function loadLive(){const tok=LS.get('dfToken',''),c=await IDB.get('data')
 /** Builds the model from a data set and shows the app; fresh = first show (take the module from the address). */
 function start(data,fresh){clearInterval(thT);resetModel();prepare(data);ME=D.meta.me;ADMIN=!!D.meta.admin;S=ADMIN?null:new Set(D.vkOfCust.map((v,i)=>v===ME?i:-1).filter(i=>i>=0));if(fresh){planRep=ADMIN?'':ME;const h=location.hash.slice(1);mod=MODS.some(m=>m.id===h)?h:'home'}render()}
 function resetModel(){CU.length=0;[byI,callsBy,collBy,unbBy,cpBy,cadBy,cmBy,prodTot,mainGrp].forEach(m=>m.clear());delete C._medLate}
-function bar(active){return `<div class="bar"><div class="in"><img src="${LOGO}" alt="DairyTop"><span class="brand" id="toHome">Dairy<span>Flow</span></span><nav class="mods">${active?MODS.filter(m=>can(m.id)).map(m=>`<button data-m="${m.id}" class="${m.id===active?'on':''}">${m.t}</button>`).join(''):''}</nav><button class="me" id="meBtn" title="Switch user"><span class="av">${esc(initials(ME))}</span>${esc(ME)}</button></div></div>`}
-function bindBar(){$('#toHome').onclick=()=>go('home');$('#meBtn').onclick=()=>{if(LIVE){api({a:'logout',token:LS.get('dfToken','')}).catch(()=>{});LS.set('dfToken',null);IDB.del('data');PEOPLE=null;D=null}ME=null;LS.set('dfUser',null);render()};root.querySelectorAll('.mods [data-m]').forEach(b=>b.onclick=()=>go(b.dataset.m))}
+function bar(active){return `<div class="bar"><div class="in"><img src="${LOGO}" alt="DairyTop"><span class="brand" id="toHome">Dairy<span>Flow</span></span><nav class="mods">${active?MODS.filter(m=>can(m.id)).map(m=>`<button data-m="${m.id}" class="${m.id===active?'on':''}">${m.t}</button>`).join(''):''}</nav><button class="me" id="meBtn" title="Switch user" aria-label="${esc(ME)}: switch user"><span class="av">${esc(initials(ME))}</span><span class="nm">${esc(ME)}</span></button></div></div>`}
+function bindBar(){$('#toHome').onclick=()=>go('home');$('#meBtn').onclick=()=>{if(LIVE){api({a:'logout',token:LS.get('dfToken','')}).catch(()=>{});LS.set('dfToken',null);IDB.del('data');PEOPLE=null;D=null}ME=null;LS.set('dfUser',null);render()};root.querySelectorAll('.mods [data-m]').forEach(b=>b.onclick=()=>go(b.dataset.m));const nv=root.querySelector('.mods'),on=nv&&nv.querySelector('.on');if(on&&nv.scrollWidth>nv.clientWidth)nv.scrollLeft=on.offsetLeft-(nv.clientWidth-on.offsetWidth)/2}
 function home(){const h=new Date().getHours(),hi=h<12?'Good morning':h<18?'Good afternoon':'Good evening',first=ME.split(' ')[0];
  const F={map:()=>`${NF.format(CU.filter(o=>inS(o.i)&&!o.lost&&o.ls).length)} active customers`,calls:()=>`${C.calls().length} to call`,brief:()=>`${NF.format(CU.filter(o=>inS(o.i)).length)} farms`,
   collect:()=>`${eurS(sum(C.collect(),c=>c.over))} overdue`,unb:()=>`${eurS(sum(C.orders('deliveredNotInvoiced'),o=>o.val))} to bill`,con:()=>`${C.contracts().length} contracts`,
