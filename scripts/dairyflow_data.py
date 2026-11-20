@@ -111,7 +111,7 @@ def build(archive, portal):
     ytdR, pytdR, last, first = defaultdict(int), defaultdict(int), {}, {}
     for i in range(n):
         c, m, r = F['c'][i], M[F['m'][i]], F['r'][i]
-        y, mm = ym(F['m'][i]); dt = D.date(y, mm, F['d'][i] or 28)
+        y, mm = ym(F['m'][i]); dt = D.date(y, mm, F['d'][i]).isoformat() if F['d'][i] else f'{y}-{mm:02}'   # portal months: month only
         if m in last12: rev12[c] += r; kg12[c] += F['k'][i]; grp[c][gidx[F['g'][i]]] += r
         if m in ytd: ytdR[c] += r
         if m in pytd: pytdR[c] += r
@@ -166,16 +166,19 @@ def build(archive, portal):
         if r and nul(r['naam_volledig']) and email(r.get('email1')): staff[nul(r['naam_volledig'])] = email(r.get('email1'))
     staff = {k: v for k, v in staff.items() if k in set(X['verkopers'])}
     # orders and their value (same rule as the dashboard)
-    ov, ok = defaultdict(int), defaultdict(lambda: [0, 0])
+    ov, ok, items, priced = defaultdict(int), defaultdict(lambda: [0, 0]), defaultdict(list), set()
     for l in X['openLines']:
-        if l[11]: ov[l[0]] += l[10] + max(0, l[9] - l[10])
+        nm = X['products'][l[3]][0] if l[3] is not None and l[3] < len(X['products']) else ''
+        if l[5] and nm and nm.lower() != 'tekst' and nm not in items[l[0]]: items[l[0]].append(nm)
+        if l[11]: ov[l[0]] += l[10] + max(0, l[9] - l[10]); priced.add(l[0])
         if l[4] == 'kg': ok[l[0]][0] += l[5]; ok[l[0]][1] += l[6]
     orders = []
     for o in X['orders']:
         if not o[5]: continue
         orders.append(dict(no=o[0], od=o[1], c=o[2], v=o[3], st=o[4], due=o[6], rel=o[7], stage=o[12], lines=o[8],
                            val=ov.get(o[0], 0) if o[12] in ('toDeliver', 'deliveredNotInvoiced') else 0,
-                           kgOrd=round(ok[o[0]][0] / 1e6, 3), kgDel=round(ok[o[0]][1] / 1e6, 3)))
+                           kgOrd=round(ok[o[0]][0] / 1e6, 3), kgDel=round(ok[o[0]][1] / 1e6, 3),
+                           items=items.get(o[0], []), priced=o[0] in priced))
     open_ord = defaultdict(int)
     for o in orders:
         if o['stage'] in ('toDeliver', 'deliveredNotInvoiced'): open_ord[o['c']] += o['val']

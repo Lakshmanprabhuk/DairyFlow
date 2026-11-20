@@ -43,9 +43,9 @@ function doPost(e) {
     switch (req.a) {
       case 'people':      return out({ ok: true, people: people_() });
       case 'sendCode':    return out(sendCode_(req.name));
-      case 'setPassword': return out(setPassword_(req.name, req.code, req.password));
-      case 'login':       return out(login_(req.name, req.password));
-      case 'data':        return dataFor_(req.token);
+      case 'setPassword': return out(withData_(setPassword_(req.name, req.code, req.password)));
+      case 'login':       return out(withData_(login_(req.name, req.password)));
+      case 'data':        return dataFor_(req.token, req.have);
       case 'logout':      return out(logout_(req.token));
       case 'upload':      return out(upload_(req.key, req.data));
       default:            return out({ ok: false, error: 'Unknown action' });
@@ -179,7 +179,41 @@ function dataFile_() {
   if (id) { try { return DriveApp.getFileById(id); } catch (e) {} }
   return null;
 }
-function readData_() { const f = dataFile_(); return f ? JSON.parse(f.getBlob().getDataAsString('UTF-8')) : null; }
+/* The data file is kept in the script cache in pieces (a cache value is limited to 100 KB),
+   so a sign-in does not wait for a Drive read. An upload replaces the cached copy. */
+const CACHE_PIECE = 40000, CACHE_SECONDS = 6 * 3600;
+function cacheText_(text) {
+  const c = CacheService.getScriptCache(), n = Math.ceil(text.length / CACHE_PIECE), o = { 'df:n': String(n) };
+  for (let i = 0; i < n; i++) o['df:' + i] = text.slice(i * CACHE_PIECE, (i + 1) * CACHE_PIECE);
+  try { c.putAll(o, CACHE_SECONDS); } catch (e) { c.remove('df:n'); }
+}
+function readText_() {
+  const c = CacheService.getScriptCache(), n = Number(c.get('df:n') || 0);
+  if (n) {
+    const keys = []; for (let i = 0; i < n; i++) keys.push('df:' + i);
+    const got = c.getAll(keys);
+    if (keys.every(k => got[k] != null)) return keys.map(k => got[k]).join('');
+  }
+  const f = dataFile_(); if (!f) return null;
+  const text = f.getBlob().getDataAsString('UTF-8'); cacheText_(text); return text;
+}
+function readData_() { const t = readText_(); return t ? JSON.parse(t) : null; }
+/** The data a signed-in user may see (admins everything, a verkoper only their own customers). */
+function payload_(u) {
+  const d = readData_(); if (!d) return null;
+  const admin = u.Role === 'admin';
+  delete d.staff;                                       // staff emails stay on the server
+  d.meta.me = u.Name; d.meta.admin = admin;
+  if (!admin) restrict_(d, u.Name);
+  return d;
+}
+/** A successful sign-in returns the data in the same answer: one round trip instead of two. */
+function withData_(r) {
+  if (!r || !r.ok) return r;
+  const u = user_(r.name); const d = u && payload_(u);
+  if (d) r.data = d;
+  return r;
+}
 function upload_(key, text) {
   const want = PropertiesService.getScriptProperties().getProperty('UPLOAD_KEY');
   if (!want || !same_(key, want)) return { ok: false, error: 'Not allowed' };
@@ -187,16 +221,14 @@ function upload_(key, text) {
   if (!d.meta || !d.customers) return { ok: false, error: 'Not DairyFlow data' };
   let f = dataFile_();
   if (f) f.setContent(text); else { f = DriveApp.createFile(CFG.DATA_FILE, text, 'application/json'); PropertiesService.getScriptProperties().setProperty('DATA_FILE_ID', f.getId()); }
+  cacheText_(text);
   seedUsersFromData_();
   return { ok: true, through: d.meta.lt, bytes: text.length };
 }
-function dataFor_(token) {
+function dataFor_(token, have) {
   const u = who_(token); if (!u) return out({ ok: false, error: 'Please sign in again.', signin: true });
-  const d = readData_(); if (!d) return out({ ok: false, error: 'No data uploaded yet.' });
-  const admin = u.Role === 'admin';
-  delete d.staff;                                       // staff emails stay on the server
-  d.meta.me = u.Name; d.meta.admin = admin;
-  if (!admin) restrict_(d, u.Name);
+  const d = payload_(u); if (!d) return out({ ok: false, error: 'No data uploaded yet.' });
+  if (have && have === d.meta.generated) return out({ ok: true, same: true, me: u.Name });   // the app already has this version
   return ContentService.createTextOutput(JSON.stringify({ ok: true, data: d })).setMimeType(ContentService.MimeType.JSON);
 }
 /** Keeps only this verkoper's customers; company-wide lists are removed. */
