@@ -1,0 +1,9 @@
+.env
+*.local
+scripts/gdrive_credentials.json
+gdrive_credentials.json
+__pycache__/
+*.tmp
+_site/
+data/
+live_test.html

@@ -1,0 +1,75 @@
+name: DairyFlow data and site
+
+on:
+  schedule:
+    - cron: '30 3 * * *'      # every day 09:00 India time (03:30 UTC); the Microfas export lands around 06:30 IST
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore: ['README.md']
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: dairyflow
+  cancel-in-progress: false
+
+jobs:
+  data:
+    # Builds the data from the newest Drive export and hands it to the DairyFlow API (Apps Script).
+    # The data never goes into this repository or onto the website.
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r scripts/requirements.txt
+      - name: Write Google credentials
+        run: echo '${{ secrets.GDRIVE_CREDENTIALS }}' > scripts/gdrive_credentials.json
+      - name: Build the data from the latest Drive export (stops if any total does not tally)
+        env:
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          GDRIVE_CREDENTIALS_FILE: gdrive_credentials.json
+        run: python scripts/dairyflow_data.py --out "$RUNNER_TEMP/data.json"
+      - name: Upload to the DairyFlow API
+        env:
+          API: ${{ secrets.DAIRYFLOW_API_URL }}
+          KEY: ${{ secrets.DAIRYFLOW_UPLOAD_KEY }}
+        run: |
+          rm -f scripts/gdrive_credentials.json
+          python - <<'PY'
+          import json, os, urllib.request
+          body = json.dumps({"a": "upload", "key": os.environ["KEY"], "data": open(os.environ["RUNNER_TEMP"] + "/data.json", encoding="utf-8").read()}).encode()
+          req = urllib.request.Request(os.environ["API"], data=body, headers={"Content-Type": "text/plain;charset=utf-8"})
+          r = json.loads(urllib.request.urlopen(req, timeout=300).read())
+          print(r)
+          if not r.get("ok"): raise SystemExit("Upload refused: " + str(r.get("error")))
+          PY
+
+  site:
+    needs: data
+    if: always() && (needs.data.result == 'success' || needs.data.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect the site files (no data)
+        env:
+          API: ${{ secrets.DAIRYFLOW_API_URL }}
+        run: |
+          mkdir _site
+          cp -r index.html manifest.webmanifest sw.js icons _site/
+          sed -i "s#__DAIRYFLOW_API__#${API}#" _site/index.html
+          grep -q "__DAIRYFLOW_API__" _site/index.html && { echo "DAIRYFLOW_API_URL secret is missing"; exit 1; } || true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: pages
+        uses: actions/deploy-pages@v4

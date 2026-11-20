@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DairyFlow</title>
+<meta name="theme-color" content="#1F3741">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DairyFlow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: DairyTop's own: practical, friendly, calm; the work comes first.
+   IDEA: the field adviser's daily clipboard: who to visit, call, chase and bill, on one map of the farms.
+   PICTURE: a navy night map with sky-blue columns per farm; the clipboard lists beside and below it.
+   COLOUR and TYPE: dairytop.eu: navy #1F3741 bars, sky #40BCF3 for action, grey-blue #EEF2F3 ground, white cards; Outfit headings, DM Sans text.
+   LAYOUT: who are you → your modules → one module at a time under a navy app bar. */
+:root{color-scheme:light dark;--bg:light-dark(#EEF2F3,#0F1C22);--card:light-dark(#FFFFFF,#162730);--ink:light-dark(#1F3741,#E4EDF0);--mute:light-dark(#5E6F77,#94A8B0);--line:light-dark(#DCE5E9,#243841);--soft:light-dark(#E3F3FB,#17323F);--navy:#1F3741;--sky:#40BCF3;--skyd:#0A7FB5;--green:#2E9B62;--amber:#E5A93D;--red:#D95C5C;--orange:#E07B39;--grey:#8A9AA1}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 'DM Sans',system-ui,sans-serif;overflow-x:clip;font-variant-numeric:tabular-nums}
+h1,h2,h3,.brand{font-family:Outfit,'DM Sans',sans-serif;letter-spacing:-.01em}
+h1{font-size:clamp(28px,3.4vw,42px);line-height:1.06;margin:0 0 8px;text-wrap:balance}
+h2{font-size:22px;line-height:1.2;margin:0 0 4px}h3{font-size:17px;margin:0 0 4px}
+.sub{color:var(--mute);margin:0;max-width:76ch}
+button{font:inherit}
+.btn{background:var(--sky);color:#0D2733;border:0;border-radius:5px;font-weight:700;padding:10px 16px;cursor:pointer;min-height:44px}
+.btn.ghost{background:transparent;color:inherit;border:1.5px solid currentColor}
+.btn.sm{min-height:34px;padding:5px 10px;font-size:13.5px}
+.btn:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto;padding:clamp(18px,3vw,36px) max(3vw,16px)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 3px rgba(31,55,65,.06)}
+/* who */
+#who{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(160deg,#1F3741 0 46%,var(--bg) 46%)}
+.login{width:min(860px,100%);padding:clamp(22px,4vw,40px);position:relative}
+.login .logo{position:absolute;top:26px;right:26px;width:64px;height:64px;border-radius:12px;background:#fff}
+.eyebrow{color:var(--sky);font-weight:700;margin:0 0 6px}
+.people{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:22px}
+.person{display:flex;gap:12px;align-items:center;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;color:inherit;min-height:64px}
+.person:hover,.person:focus-visible{border-color:var(--sky);outline:none}
+.av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--soft);color:var(--skyd);font:700 15px Outfit,sans-serif;flex:none}
+.person .r{font-size:13px;color:var(--mute)}
+.powered{margin-top:22px;font-size:13px;color:var(--mute);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.powered b{color:var(--ink)}
+/* app bar */
+.bar{background:var(--navy);color:#fff;position:sticky;top:0;z-index:30}
+.bar .in{max-width:1320px;margin:0 auto;padding:10px max(3vw,16px);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.bar img{width:38px;height:38px;border-radius:8px;background:#fff}
+.bar .brand{font-size:21px;font-weight:700;cursor:pointer}.bar .brand span{color:var(--sky)}
+.mods{display:flex;gap:2px;overflow-x:auto;flex:1;scrollbar-width:thin}
+.mods button{background:none;border:0;color:#BFD3DB;padding:9px 11px;border-radius:5px;cursor:pointer;white-space:nowrap;font-weight:500;font-size:14.5px;min-height:40px}
+.mods button.on{background:rgba(64,188,243,.18);color:#fff}
+.me{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:0;color:#fff;border-radius:22px;padding:4px 12px 4px 4px;cursor:pointer;min-height:40px}
+.me .av{width:32px;height:32px;font-size:12px;background:var(--sky);color:#0D2733}
+/* home */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-top:22px}
+.tile{text-align:left;padding:18px;cursor:pointer;color:inherit;display:flex;flex-direction:column;gap:6px;min-height:170px}
+.tile:hover,.tile:focus-visible{border-color:var(--sky);outline:none;box-shadow:0 4px 14px rgba(31,55,65,.1)}
+.tile svg{width:30px;height:30px;color:var(--skyd)}
+.tile .fig{font:700 22px Outfit,sans-serif;margin-top:auto}
+.tile .lock{font-size:12.5px;color:var(--mute)}
+/* module chrome */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:18px 0}
+.kpi{padding:14px 16px}.kpi .l{font-size:13.5px;color:var(--mute);font-weight:500}.kpi .v{font:700 clamp(22px,2.3vw,30px)/1.2 Outfit,sans-serif;margin:4px 0 2px}.kpi .s{font-size:13.5px;color:var(--mute)}
+.panel{padding:18px clamp(14px,2vw,22px);margin-top:16px}
+.lh{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+select,input[type=search],input[list],input[type=password],input[type=text],input[inputmode]{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:9px 10px;font:16px 'DM Sans',sans-serif;min-height:44px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th{text-align:left;font-size:13px;color:var(--mute);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n,th.n{text-align:right;white-space:nowrap}
+tfoot td{font-weight:700;border-bottom:0}
+tr.grp td{background:var(--soft);font-weight:700}
+a.cl{color:var(--skyd);font-weight:700;cursor:pointer;text-decoration:none}a.cl:hover{text-decoration:underline}
+:root[data-theme=dark] a.cl{color:var(--sky)}@media (prefers-color-scheme:dark){:root:not([data-theme=light]) a.cl{color:var(--sky)}}
+.tag{display:inline-block;font-size:12.5px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.t-red{background:rgba(217,92,92,.14);color:#B33A3A}.t-amb{background:rgba(229,169,61,.18);color:#8F620E}.t-or{background:rgba(224,123,57,.16);color:#A44E17}.t-gr{background:rgba(46,155,98,.15);color:#1C7A46}.t-g{background:rgba(138,154,161,.2);color:var(--mute)}.t-sky{background:var(--soft);color:var(--skyd)}
+.oc{display:flex;gap:4px}.oc button{border:1px solid var(--line);background:none;color:var(--mute);border-radius:5px;font-size:12.5px;font-weight:700;padding:6px 8px;cursor:pointer;min-height:32px}
+.oc button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.note{font-size:13.5px;color:var(--mute);margin:10px 0 0}
+.empty{color:var(--mute);padding:16px 0}
+.cols{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+.fig2{position:relative;min-height:300px}.fig2>svg{position:absolute;inset:0;width:100%;height:100%}
+.rows .r{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.rows .bar{grid-column:1/-1;height:6px;background:var(--line);border-radius:3px;overflow:hidden}.rows .bar i{display:block;height:100%;background:var(--sky);border-radius:3px}
+.alert{border-left:4px solid var(--red);background:light-dark(#FDF3F3,#2A1A1C);padding:10px 14px;border-radius:6px;margin:8px 0;font-size:15px}
+.alert.a{border-color:var(--amber);background:light-dark(#FFF8EA,#2A2416)}.alert.o{border-color:var(--orange);background:light-dark(#FFF4EC,#2A1F17)}.alert.g{border-color:var(--green);background:light-dark(#EFF8F3,#15281F)}.alert.s{border-color:var(--sky);background:var(--soft)}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:14.5px}.kv span{color:var(--mute)}.kv b{text-align:right;font-weight:700}
+/* map */
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 350px;background:#0B171D;border-radius:10px;overflow:hidden;border:1px solid #1E323B;min-height:600px}
+.mapwrap{position:relative;min-height:600px;touch-action:none}
+.mapwrap canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab;display:block}
+.ctrl{position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:8px;z-index:3;max-width:calc(100% - 70px)}
+.seg{display:inline-flex;background:rgba(16,32,40,.9);border:1px solid #2A4350;border-radius:7px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button,.zoom button{background:none;border:0;color:#CFE3EC;font-weight:700;font-size:13px;padding:8px 11px;border-radius:5px;cursor:pointer;min-height:36px}
+.seg button.on{background:var(--sky);color:#0D2733}
+.zoom{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:4px;z-index:3}
+.zoom button{background:rgba(16,32,40,.9);border:1px solid #2A4350;width:40px;height:40px;padding:0;font-size:17px}
+.legend{position:absolute;left:12px;bottom:12px;z-index:3;background:rgba(16,32,40,.9);border:1px solid #2A4350;border-radius:7px;padding:9px 12px;color:#CFE3EC;font-size:12.5px;max-width:300px}
+.attr{position:absolute;right:12px;bottom:10px;color:#6F8791;font-size:11px;z-index:3}
+.side{background:#112029;color:#DFEAEE;border-left:1px solid #1E323B;display:flex;flex-direction:column;max-height:700px}
+.side .tabs{display:flex;border-bottom:1px solid #22384A}
+.side .tabs button{flex:1;background:none;border:0;color:#9FB6C0;font-weight:700;font-size:13.5px;padding:12px 6px;cursor:pointer;border-bottom:2px solid transparent;min-height:44px}
+.side .tabs button.on{color:#fff;border-bottom-color:var(--sky)}
+.side .pane{padding:14px 16px;overflow:auto;flex:1}
+.side h3{color:#fff}.side .m{color:#93A6AE;font-size:13.5px}
+.side select,.side input{width:100%;background:#0B171D;color:#E6EEF1;border-color:#2A4350}
+.rb{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:7px 0;border-bottom:1px solid #1E323B;cursor:pointer;font-size:14px}
+.rb:hover .nm{color:var(--sky)}.rb .bar{grid-column:1/-1;height:5px;background:#1E323B;border-radius:3px;overflow:hidden}.rb .bar i{display:block;height:100%;border-radius:3px}
+.stop{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #1E323B;font-size:14px}
+.stop input{width:18px;height:18px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.num{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--sky);color:#0D2733;font-weight:700;font-size:12px}
+#tip{position:fixed;pointer-events:none;background:rgba(10,22,28,.96);color:#fff;border:1px solid #2A4350;border-radius:6px;padding:8px 10px;font-size:13.5px;z-index:60;display:none;max-width:290px;line-height:1.4}
+#tip .m{color:#9FB6C0}
+dialog{border:0;border-radius:10px;padding:0;max-width:720px;width:calc(100% - 24px);background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(5,15,20,.6)}
+.dlg{padding:18px 20px}.dlg textarea{width:100%;min-height:300px;font:14px/1.5 'DM Sans',sans-serif;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:10px}
+#install{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:70;width:min(560px,calc(100% - 24px));background:var(--navy);color:#fff;border-radius:12px;padding:14px 16px;display:none;gap:12px;align-items:center;box-shadow:0 8px 28px rgba(0,0,0,.25)}
+#install img{width:44px;height:44px;border-radius:10px;background:#fff;flex:none}#install p{margin:0;font-size:14.5px;flex:1}#install b{font-family:Outfit,sans-serif;font-size:16px}
+.ca{display:inline-flex;gap:6px;flex-wrap:wrap}.ca a{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:6px;padding:5px 9px;font-size:13px;font-weight:700;color:var(--skyd);text-decoration:none;min-height:34px;background:var(--card)}
+.ca a:hover{border-color:var(--sky)}.ca a svg{width:15px;height:15px}.side .ca a{background:#0B171D;border-color:#2A4350;color:#9BE0FF}
+footer{color:var(--mute);font-size:13px;text-align:center;padding:22px}footer b{color:var(--ink)}
+#err{display:none;background:#fff3f3;color:#8a1f1f;padding:14px;border-radius:8px;margin:12px}
+@media(max-width:1000px){.stage{grid-template-columns:minmax(0,1fr)}.side{max-height:none;border-left:0;border-top:1px solid #1E323B}.cols{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){.bar{position:static}.mapwrap{min-height:470px}.legend{display:none}.login .logo{width:48px;height:48px;top:18px;right:18px}}
+@media(max-width:600px){table{font-size:13.5px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:9em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:8.5em;margin-inline-start:-9em;color:var(--mute);font-size:12.5px;white-space:normal}.stack td:empty{display:none}.stack td.n{text-align:start}.stack tfoot td{padding-inline-start:0}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0]?.cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<div id="err"></div>
+<div id="root"><div class="wrap"><p class="sub">Loading DairyFlow…</p></div></div>
+<div id="tip"></div>
+<div id="install" role="dialog" aria-label="Install DairyFlow"><img src="icons/icon-192.png" alt=""><p><b>Install DairyFlow</b><br><span id="instTxt">Add it to your home screen: it opens like an app and works offline.</span></p><button class="btn" id="instGo">Install</button><button class="btn ghost" id="instNo" style="color:#fff">Not now</button></div>
+<dialog id="dlg"><div class="dlg"><div class="lh"><h2 id="dlgT">Reminder</h2><div class="seg" id="langSeg" style="background:var(--navy)"><button data-l="de">Deutsch</button><button data-l="nl">Nederlands</button><button data-l="en">English</button></div></div>
+<textarea id="dlgX" aria-label="Text"></textarea>
+<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap"><span class="note" id="dlgN" style="margin:0 auto 0 0"></span><span class="ca" id="dlgSend"></span><button class="btn" id="dlgC">Copy text</button><button class="btn ghost" id="dlgClose">Close</button></div></div></dialog>
+<script>
+{
+/* ================= helpers ================= */
+const $=s=>document.querySelector(s),root=$('#root');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const NF=new Intl.NumberFormat('de-DE'),NF1=new Intl.NumberFormat('de-DE',{maximumFractionDigits:1}),NF2=new Intl.NumberFormat('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const eur=c=>(c<0?'−':'')+'€ '+NF.format(Math.abs(Math.round(c/100))), eur2=c=>(c<0?'−':'')+'€ '+NF2.format(Math.abs(c)/100);
+const eurS=c=>{const v=Math.abs(c/100),s=c<0?'−':'';return v>=1e6?s+'€ '+(v/1e6).toLocaleString('de-DE',{maximumFractionDigits:2})+'M':v>=1e4?s+'€ '+Math.round(v/1e3)+'K':s+'€ '+NF.format(Math.round(v))};
+const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const dl=iso=>{if(!iso)return'—';const [y,m,d]=iso.split('-');return `${+d} ${MN[m-1]} ${y}`};
+const DAY=864e5,tOf=iso=>Math.round(Date.parse(iso+'T00:00:00Z')/DAY),isoT=t=>new Date(t*DAY).toISOString().slice(0,10);
+const ton=kg=>NF1.format(kg/1000)+' t';
+const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const sum=(a,f)=>a.reduce((s,x)=>s+f(x),0);
+const LOGO='icons/icon-192.png';
+const API='__DAIRYFLOW_API__',LIVE=!API.startsWith('__');
+const api=(body)=>fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).then(r=>r.json());
+
+/* ================= people, access, modules ================= */
+const ADMINS=['Johan Hoogendoorn','Leon'];
+const CHANNELS=['Kantoor','Webshop','Multiple representatives','Unassigned'];
+const ICON={map:'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',calls:'M5 4h4l2 5-3 2a11 11 0 005 5l2-3 5 2v4a2 2 0 01-2 2A17 17 0 013 6a2 2 0 012-2z',brief:'M7 3h10v4H7zM5 5h2M17 5h2v16H5V5M9 12h6M9 16h4',collect:'M3 7h18v12H3zM3 11h18M7 15h3',cash:'M4 19V9M10 19V5M16 19v-7M22 19H2',unb:'M4 4h12l4 4v12H4zM8 12h8M8 16h5',price:'M20 12l-8 8-9-9V3h8zM7.5 7.5h.01',buy:'M3 3h2l2 12h11l3-8H6M9 20a1 1 0 100-.01M18 20a1 1 0 100-.01',con:'M6 3h9l4 4v14H6zM9 10h7M9 14h7M9 18h4'};
+const MODS=[
+ {id:'map',t:'Map & visit day',d:'Where your customers are, regions and gaps, and a route for a day of visits.',all:true},
+ {id:'calls',t:'Call list',d:'Customers past their usual reorder date, with outcomes to tick off.',all:true},
+ {id:'brief',t:'Visit briefing',d:'A one-page view of a farm before you visit: what they buy, prices, open items.',all:true},
+ {id:'collect',t:'Collections',d:'Who owes what, who to chase first, and a ready reminder text.',all:true},
+ {id:'unb',t:'Not invoiced',d:'Delivered but not invoiced, and orders stuck in Microfas.',all:true},
+ {id:'con',t:'Contracts',d:'Delivered against contracted quantity, and contracts ending soon.',all:true},
+ {id:'cash',t:'Cash forecast',d:'Expected incoming payments for the next 8 weeks.',all:false},
+ {id:'price',t:'Price & margin',d:'Sales below purchase price, low margins and customers far under the usual price.',all:false},
+ {id:'buy',t:'Buying plan',d:'Expected milk powder and feed tonnes for the coming 8 weeks.',all:false}];
+let YTD={l:'',p:''};let D,ME=null,ADMIN=false,S=null,mod='home';
+const inS=c=>!S||S.has(c);
+const CHG=/kosten|diversen|korting|toeslag|vracht|freight|statiegeld|emballage/i,isChg=name=>CHG.test(name||'');
+const initials=n=>n.split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+
+/* ================= data model ================= */
+let CU=[],byI=new Map(),callsBy=new Map(),collBy=new Map(),unbBy=new Map(),cpBy=new Map(),cadBy=new Map(),cmBy=new Map(),prodTot=new Map(),mainGrp=new Map();
+const merc=(lon,lat)=>{const s=Math.sin(lat*Math.PI/180);return[(lon+180)/360,.5-Math.log((1+s)/(1-s))/(4*Math.PI)]};
+function prepare(d){D=d;{const [a,b]=(d.meta.ytd||'/').split('/');if(a&&b){const y=a.slice(0,4),m1=MN[+a.slice(5)-1],m2=MN[+b.slice(5)-1];YTD={l:`${m1}–${m2} ${y}`,p:`${m1}–${m2} ${y-1}`}}}
+ for(const r of d.customers){const o={};d.cols.forEach((c,i)=>o[c]=r[i]);[o.mx,o.my]=merc(o.lo,o.la);o.lost=!!o.ls&&o.ls<d.meta.lostCut;CU.push(o);byI.set(o.i,o)}
+ for(const c of d.calls){if(isChg(c.p))continue;if(!callsBy.has(c.c))callsBy.set(c.c,[]);callsBy.get(c.c).push(c)}
+ for(const c of d.collections)collBy.set(c.c,c);
+ for(const o of d.orders)if(o.stage==='deliveredNotInvoiced'){if(!unbBy.has(o.c))unbBy.set(o.c,[]);unbBy.get(o.c).push(o)}
+ for(const r of d.cp){const [c,p,rev,kg,q,n]=r;if(!cpBy.has(c))cpBy.set(c,[]);cpBy.get(c).push({p,rev,kg,q,n});if(!d.prodTot){const t=prodTot.get(p)||{rev:0,kg:0,q:0};t.rev+=rev;t.kg+=kg;t.q+=q;prodTot.set(p,t)}}
+ if(d.prodTot)for(const [p,v] of Object.entries(d.prodTot))prodTot.set(+p,{rev:v[0],kg:v[1],q:v[2]});
+ for(const [c,L] of cpBy){const g=[0,0,0,0,0,0];for(const x of L)g[d.products[x.p][2]]+=Math.max(0,x.rev);const m=g.indexOf(Math.max(...g));if(g[m]>0)mainGrp.set(c,m)}
+ for(const r of d.cadence)cadBy.set(r[0]+'|'+r[1],r);
+ for(const [c,m,v] of d.cm){if(!cmBy.has(c))cmBy.set(c,new Map());cmBy.get(c).set(m,v)}
+ const prep=r=>r.map(p=>{const m=merc(p[0],p[1]);return[p[0],p[1],m[0],m[1]]});
+ for(const c of d.countries){c.rr=c.r.map(prep);c.home=['NL','DE','BE'].includes(c.cc)}
+ for(const rg of d.regions){rg.rr=rg.r.map(prep);const big=rg.rr.reduce((a,b)=>b.length>a.length?b:a);rg.lx=sum(big,p=>p[2])/big.length;rg.ly=sum(big,p=>p[3])/big.length}
+ d.people=[...new Set([...d.verkopers,...d.vkOfCust])].filter(v=>v&&!CHANNELS.includes(v)).map(v=>({n:v,c:d.vkOfCust.filter(x=>x===v).length,admin:ADMINS.includes(v)})).sort((a,b)=>(b.admin-a.admin)||b.c-a.c||a.n.localeCompare(b.n));
+}
+
+/* ================= calculations (pure; also used by the audit) ================= */
+const C={
+ calls:()=>D.calls.filter(c=>inS(c.c)&&!isChg(c.p)),
+ collect:()=>D.collections.filter(c=>inS(c.c)),
+ orders:st=>D.orders.filter(o=>inS(o.c)&&(!st||o.stage===st)),
+ contracts(){const lt=tOf(D.meta.lt);return D.contracts.filter(r=>inS(r[0])).map(r=>{const [c,g,qty,from,to,del,el,unc]=r,pct=qty>0?del/qty*100:null,odd=qty>0&&del>qty*5,left=tOf(to)-lt;
+   const st=odd?'Check quantity':pct==null?'—':pct>=100?'Delivered':left<0?'Ended short':pct<el-10?'Behind':pct>el+10?'Ahead':'On track';return{c,g,qty,from,to,del,el,unc,pct,odd,left,st}}).sort((a,b)=>a.left-b.left)},
+ lateDays(c){const v=D.lateness[c];if(v!=null)return Math.max(-10,Math.min(120,v));return C._medLate??(C._medLate=(()=>{const a=Object.values(D.lateness).sort((x,y)=>x-y);return a.length?a[a.length>>1]:0})())},
+ vat(c){const v=D.vatRatio[c];if(v)return v;const m=D.market[c],a=Object.entries(D.vatRatio).filter(([k])=>D.market[k]===m).map(x=>x[1]).sort((x,y)=>x-y);return a.length?a[a.length>>1]:1},
+ cash(){const lt=tOf(D.meta.lt),wk=Array.from({length:8},(_,k)=>({k,a:lt+1+7*k,b:lt+7*(k+1),inv:0,ord:0,rows:[]})),later={inv:0,ord:0,rows:[]},beyond={amt:0,rows:[]},credits={amt:0,rows:[]};let total=0;
+  const put=(t,amt,row,kind)=>{const w=wk.find(w=>t>=w.a&&t<=w.b);const B=w||(t>wk[7].b?later:wk[0]);B[kind]+=amt;B.rows.push(row)};
+  for(const co of D.collections){if(!inS(co.c))continue;const L=C.lateDays(co.c);
+   for(const x of co.inv){total+=x.incl;if(x.incl<0){credits.amt+=x.incl;credits.rows.push({c:co.c,no:x.no,amt:x.incl});continue}
+    const exp=tOf(x.due)+Math.round(L),row={c:co.c,no:x.no,amt:x.incl,due:x.due,exp:isoT(Math.max(exp,lt+1)),kind:'Invoice'};
+    if(exp<=lt&&x.late>0){beyond.amt+=x.incl;beyond.rows.push(row)}else put(Math.max(exp,lt+1),x.incl,row,'inv')}}
+  let ordTot=0;for(const o of D.orders){if(!inS(o.c)||!o.val||(o.stage!=='deliveredNotInvoiced'&&o.stage!=='toDeliver'))continue;
+   const inv=o.stage==='deliveredNotInvoiced'?lt+7:Math.max(tOf(o.due),lt)+7,terms=D.terms[o.c]??14,exp=inv+terms+Math.round(C.lateDays(o.c)),amt=Math.round(o.val*C.vat(o.c));ordTot+=amt;
+   put(Math.max(exp,lt+1),amt,{c:o.c,no:o.no,amt,exp:isoT(Math.max(exp,lt+1)),kind:'Order'},'ord')}
+  return{wk,later,beyond,credits,total,ordTot}},
+ price(){const lt=tOf(D.meta.lt),M=D.meta.months,byM=new Map(),byP=new Map(),low=new Map();
+  for(const r of D.margin){const [m,d,c,p,rev,kg,cost]=r;const x=byM.get(m)||{rev:0,cost:0,kg:0};x.rev+=rev;x.cost+=cost;x.kg+=kg;byM.set(m,x);
+   const y=byP.get(p)||{rev:0,cost:0,kg:0,m:new Map()};y.rev+=rev;y.cost+=cost;y.kg+=kg;const z=y.m.get(m)||{rev:0,kg:0,cost:0};z.rev+=rev;z.kg+=kg;z.cost+=cost;y.m.set(m,z);byP.set(p,y);
+   const t=tOf(M[m]+'-'+String(d).padStart(2,'0'));if(t>=lt-90&&inS(c)){const k=c+'|'+p,w=low.get(k)||{c,p,rev:0,cost:0,kg:0,last:0};w.rev+=rev;w.cost+=cost;w.kg+=kg;w.last=Math.max(w.last,t);low.set(k,w)}}
+  const alerts=[...low.values()].filter(w=>w.rev>0&&(w.rev-w.cost)/w.rev<.05).sort((a,b)=>(a.rev-a.cost)-(b.rev-b.cost));
+  const spread=[];for(const [p,t] of prodTot){if(!D.products[p][1]||t.kg<1000||t.rev<=0)continue;const avg=t.rev/t.kg;
+   for(const [c,L] of cpBy){if(!inS(c))continue;const x=L.find(x=>x.p===p);if(!x||x.kg<500||x.rev<=0)continue;const pr=x.rev/x.kg;if(pr<avg*.9)spread.push({c,p,kg:x.kg,price:pr,avg,gap:Math.round((avg-pr)*x.kg)})}}
+  spread.sort((a,b)=>b.gap-a.gap);
+  const costs=new Map();for(const [p,from,cents] of D.costs){if(!costs.has(p))costs.set(p,[]);costs.get(p).push({from,cents})}for(const L of costs.values())L.sort((a,b)=>a.from.localeCompare(b.from));
+  return{byM,byP,alerts,spread,costs}},
+ buy(){const lt=tOf(D.meta.lt),mon=t=>t-((new Date(t*DAY).getUTCDay()+6)%7),G=[0,1],W=new Map();
+  for(const [t,g,kg] of D.dayGroup){if(!G.includes(g))continue;const m=mon(t),x=W.get(m)||[0,0];x[g]+=kg;W.set(m,x)}
+  const weeks=[...W.keys()].sort((a,b)=>a-b),curMon=mon(lt),complete=weeks.filter(m=>m+6<=lt),base8=complete.slice(-8);
+  const m25=g=>{const o={};for(const [m,gg,kg] of D.monthGroup){const ym=D.meta.months[m];if(gg===g&&ym.startsWith('2025-'))o[+ym.slice(5)]=(o[+ym.slice(5)]||0)+kg}return o};
+  const out={};for(const g of G){const h=base8.map(m=>W.get(m)[g]),mean=sum(h,x=>x)/Math.max(1,h.length),sd=Math.sqrt(sum(h,x=>(x-mean)**2)/Math.max(1,h.length)),s=m25(g),moTh=m=>new Date((m+3)*DAY).getUTCMonth()+1,
+    ref=sum(base8,m=>s[moTh(m)]||0)/Math.max(1,base8.length),fc=[];
+   for(let k=1;k<=8;k++){const m=curMon+7*k,f=ref>0&&s[moTh(m)]?s[moTh(m)]/ref:1;fc.push({m,f,mid:mean*f,lo:Math.max(0,(mean-sd)*f),hi:(mean+sd)*f})}
+   out[g]={hist:weeks.map(m=>({m,kg:W.get(m)[g],partial:m+6>lt})),mean,sd,fc,base8,s}}
+  const openKg=sum(D.orders.filter(o=>o.stage==='toDeliver'||o.stage==='deliveredNotInvoiced'),o=>Math.max(0,o.kgOrd-o.kgDel));
+  return{out,openKg,curMon}},
+ brief(c){const L=(cpBy.get(c)||[]).slice().sort((a,b)=>b.rev-a.rev),qs=D.meta.qScale,pr=D.products;
+  const lines=L.map(x=>{const t=prodTot.get(x.p),chg=isChg(pr[x.p][0]),kgP=pr[x.p][1]===1&&x.kg>0,mine=chg?null:kgP?x.rev/x.kg:(x.q>0?x.rev/(x.q/qs):null),avg=chg?null:kgP?t.rev/t.kg:(t.q>0?t.rev/(t.q/qs):null),cad=cadBy.get(c+'|'+x.p);
+   return{chg,p:x.p,rev:x.rev,kg:x.kg,q:x.q/qs,kgP,mine,avg,diff:mine&&avg?(mine/avg-1)*100:null,gap:cad?cad[4]:null,last:cad?cad[3]:null,od:cad?cad[2]:null}});
+  const mg=mainGrp.get(c),mine=new Set(L.filter(x=>x.rev>0).map(x=>x.p)),pen=new Map(),P=D.pen?.[mg],peers={length:P?P.peers:0};
+  if(P)for(const [p,n] of Object.entries(P.p))if(!mine.has(+p)&&!isChg(pr[+p][0]))pen.set(+p,n);
+  const cross=[...pen].map(([p,n])=>({p,share:n/Math.max(1,peers.length)*100})).filter(x=>x.share>=15).sort((a,b)=>b.share-a.share).slice(0,6);
+  const M=D.meta.months,last=M.length-1,months=M.slice(Math.max(0,last-11)).map((ym,i)=>({ym,rev:cmBy.get(c)?.get(Math.max(0,last-11)+i)||0}));
+  return{lines,cross,peers:peers.length,months}}
+};
+
+/* ================= screens ================= */
+function go(m){mod=m;try{history.replaceState(null,'',m==='home'?'#home':'#'+m)}catch{}render();window.scrollTo(0,0)}
+function setUser(n){ME=n;ADMIN=ADMINS.includes(n);S=ADMIN?null:new Set(D.vkOfCust.map((v,i)=>v===n?i:-1).filter(i=>i>=0));LS.set('dfUser',n);planRep=ADMIN?'':n;go('home')}
+const can=m=>ADMIN||MODS.find(x=>x.id===m)?.all;
+function render(){hideTip();if(!ME)return who();if(!D)return;if(mod==='home'||!can(mod))return home();shell(MODS.find(x=>x.id===mod));(V2[mod]||(()=>{}))($('#mc'))}
+let PEOPLE=null;
+function card(inner){return `<div id="who"><div class="login card"><img class="logo" src="${LOGO}" alt="DairyTop"><p class="eyebrow">DairyTop · DairyFlow</p>${inner}<div class="powered"><span>${LIVE?'Your password is stored only as a secure fingerprint.':'Test mode: no sign-in.'}</span><span>Powered by <b>Knitworks</b></span></div></div></div>`}
+function who(){const L=LIVE?(PEOPLE&&PEOPLE.slice().sort((a,b)=>(b.admin-a.admin)||a.n.localeCompare(b.n))):D.people;if(!L){root.innerHTML=card('<h1>Who are you?</h1><p class="sub">Loading names…</p>');api({a:'people'}).then(r=>{if(!r.ok)throw new Error(r.error);PEOPLE=r.people;who()}).catch(e=>{root.innerHTML=card(`<h1>Who are you?</h1><p class="alert">Could not reach DairyFlow: ${esc(e.message)}. Check your connection and reload.</p>`)});return}
+ root.innerHTML=card(`<h1>Who are you?</h1><p class="sub">Pick your name. Johan and Leon see everything; everyone else sees their own customers.</p>
+ <div class="people">${L.map(p=>`<button class="person" data-n="${esc(p.n)}"><span class="av">${esc(initials(p.n))}</span><span><b>${esc(p.n)}</b><br><span class="r">${p.admin?'Sees everything':LIVE?(p.hasPw?'Sign in':'Create your password'):p.c+' customers'}</span></span></button>`).join('')}</div>`);
+ root.querySelectorAll('.person').forEach(b=>b.onclick=()=>LIVE?auth(L.find(p=>p.n===b.dataset.n),L.find(p=>p.n===b.dataset.n).hasPw?'login':'setup'):setUser(b.dataset.n))}
+function auth(p,step,info){const back='<button class="btn ghost sm" id="aBack" style="color:var(--ink)">← Not you?</button>';
+ if(step==='login')root.innerHTML=card(`<h1>Hello, ${esc(p.n.split(' ')[0])}</h1><p class="sub">Enter your DairyFlow password.</p><form id="aF" style="display:grid;gap:12px;max-width:380px;margin-top:18px"><label>Password<br><input type="password" id="aPw" autocomplete="current-password" required style="width:100%;margin-top:4px"></label><button class="btn">Sign in</button><p class="note" id="aMsg" role="alert"></p><p style="margin:0;display:flex;gap:10px;flex-wrap:wrap">${back}<button type="button" class="btn ghost sm" id="aForgot" style="color:var(--ink)">Forgot password?</button></p></form>`);
+ else root.innerHTML=card(`<h1>${p.hasPw?'Set a new password':'Create your password'}</h1><p class="sub">${p.hasEmail?`We email you a 6-digit code to confirm it is you.`:`Ask Johan or Leon for your setup code; they enter it in the DairyFlow users sheet.`}</p>
+  <form id="aF" style="display:grid;gap:12px;max-width:380px;margin-top:18px">${p.hasEmail?`<button type="button" class="btn ghost" id="aSend" style="color:var(--ink)">${info?'Send the code again':'Email me a code'}</button>`:''}${info?`<p class="alert s" style="margin:0">${esc(info)}</p>`:''}
+  <label>${p.hasEmail?'Code from the email':'Setup code'}<br><input id="aCode" inputmode="numeric" autocomplete="one-time-code" required style="width:100%;margin-top:4px"></label>
+  <label>New password (at least 8 characters)<br><input type="password" id="aPw" autocomplete="new-password" minlength="8" required style="width:100%;margin-top:4px"></label>
+  <label>Repeat the password<br><input type="password" id="aPw2" autocomplete="new-password" minlength="8" required style="width:100%;margin-top:4px"></label>
+  <button class="btn">Save password and sign in</button><p class="note" id="aMsg" role="alert"></p><p style="margin:0">${back}</p></form>`);
+ const msg=t=>{$('#aMsg').textContent=t};$('#aBack').onclick=()=>who();
+ if($('#aForgot'))$('#aForgot').onclick=()=>auth(p,'setup');
+ if($('#aSend'))$('#aSend').onclick=async()=>{msg('Sending…');try{const r=await api({a:'sendCode',name:p.n});if(!r.ok)return msg(r.error);auth(p,'setup',`Code sent to ${r.sentTo}. It works for 15 minutes.`)}catch{msg('Could not reach DairyFlow. Try again.')}};
+ $('#aF').onsubmit=async e=>{e.preventDefault();const btn=e.submitter||$('#aF .btn:not(.ghost)');btn.disabled=true;msg('');
+  try{let r;if(step==='login')r=await api({a:'login',name:p.n,password:$('#aPw').value});
+   else{if($('#aPw').value!==$('#aPw2').value){btn.disabled=false;return msg('The two passwords are not the same.')}r=await api({a:'setPassword',name:p.n,code:$('#aCode').value,password:$('#aPw').value})}
+   if(!r.ok){btn.disabled=false;if(r.needSetup)return auth(p,'setup');return msg(r.error)}
+   LS.set('dfToken',r.token);await loadLive()}catch{btn.disabled=false;msg('Could not reach DairyFlow. Try again.')}}}
+async function loadLive(){root.innerHTML='<div class="wrap"><p class="sub">Loading your data…</p></div>';const r=await api({a:'data',token:LS.get('dfToken','')});
+ if(!r.ok){LS.set('dfToken',null);if(!r.signin){const x=$('#err');x.style.display='block';x.textContent=r.error}return who()}
+ resetModel();prepare(r.data);ME=D.meta.me;ADMIN=!!D.meta.admin;S=ADMIN?null:new Set(D.vkOfCust.map((v,i)=>v===ME?i:-1).filter(i=>i>=0));planRep=ADMIN?'':ME;const h=location.hash.slice(1);mod=MODS.some(m=>m.id===h)?h:'home';render()}
+function resetModel(){CU.length=0;[byI,callsBy,collBy,unbBy,cpBy,cadBy,cmBy,prodTot,mainGrp].forEach(m=>m.clear());delete C._medLate}
+function bar(active){return `<div class="bar"><div class="in"><img src="${LOGO}" alt="DairyTop"><span class="brand" id="toHome">Dairy<span>Flow</span></span><nav class="mods">${active?MODS.filter(m=>can(m.id)).map(m=>`<button data-m="${m.id}" class="${m.id===active?'on':''}">${m.t}</button>`).join(''):''}</nav><button class="me" id="meBtn" title="Switch user"><span class="av">${esc(initials(ME))}</span>${esc(ME)}</button></div></div>`}
+function bindBar(){$('#toHome').onclick=()=>go('home');$('#meBtn').onclick=()=>{if(LIVE){api({a:'logout',token:LS.get('dfToken','')}).catch(()=>{});LS.set('dfToken',null);PEOPLE=null;D=null}ME=null;LS.set('dfUser',null);render()};root.querySelectorAll('.mods [data-m]').forEach(b=>b.onclick=()=>go(b.dataset.m))}
+function home(){const h=new Date().getHours(),hi=h<12?'Good morning':h<18?'Good afternoon':'Good evening',first=ME.split(' ')[0];
+ const F={map:()=>`${NF.format(CU.filter(o=>inS(o.i)&&!o.lost&&o.ls).length)} active customers`,calls:()=>`${C.calls().length} to call`,brief:()=>`${NF.format(CU.filter(o=>inS(o.i)).length)} farms`,
+  collect:()=>`${eurS(sum(C.collect(),c=>c.over))} overdue`,unb:()=>`${eurS(sum(C.orders('deliveredNotInvoiced'),o=>o.val))} to bill`,con:()=>`${C.contracts().length} contracts`,
+  cash:()=>{const r=C.cash();return `${eurS(sum(r.wk,w=>w.inv+w.ord))} in 8 weeks`},price:()=>`${C.price().alerts.length} low-margin sales`,buy:()=>{const b=C.buy();return `${ton(sum(b.out[0].fc,x=>x.mid))} milk powder`}};
+ root.innerHTML=bar('')+`<div class="wrap"><h1>${hi}, ${esc(first)}</h1><p class="sub">${ADMIN?'You see all customers and every module.':`You see your ${S.size} customers. Choose what to work on.`} Microfas data through ${dl(D.meta.lt)}.</p>
+ <div class="tiles">${MODS.map(m=>{const ok=can(m.id);return `<button class="tile card" data-m="${m.id}" ${ok?'':'disabled style="opacity:.55;cursor:default"'}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${ICON[m.id]}"/></svg><h3>${m.t}</h3><span class="sub" style="font-size:14.5px">${m.d}</span>${ok?`<span class="fig">${F[m.id]()}</span>`:'<span class="lock">For Johan and Leon</span>'}</button>`}).join('')}</div></div><footer>DairyFlow for DairyTop · Powered by <b>Knitworks</b></footer>`;
+ bindBar();root.querySelectorAll('.tile[data-m]:not([disabled])').forEach(b=>b.onclick=()=>go(b.dataset.m))}
+function shell(m){root.innerHTML=bar(m.id)+`<div class="wrap" id="mc"></div><footer>Microfas data through ${dl(D.meta.lt)} · DairyFlow · Powered by <b>Knitworks</b></footer>`;bindBar()}
+const cn=c=>byI.get(c)?`<a class="cl" data-c="${c}">${esc(D.names[c])}</a>`:esc(D.names[c]);
+const bindCl=el=>el.querySelectorAll('a.cl[data-c]').forEach(a=>a.onclick=()=>{briefC=+a.dataset.c;go('brief')});
+const repSel=(id,val)=>ADMIN?`<select id="${id}" aria-label="Verkoper"><option value="">All verkopers</option>${[...new Set(D.vkOfCust)].filter(v=>!CHANNELS.includes(v)).sort().map(v=>`<option${v===val?' selected':''}>${esc(v)}</option>`).join('')}</select>`:'';
+const kpis=a=>`<div class="kpis">${a.map(k=>`<div class="kpi card"><div class="l">${k[0]}</div><div class="v">${k[1]}</div><div class="s">${k[2]}</div></div>`).join('')}</div>`;
+
+/* ================= modules ================= */
+const V2={};let briefC=null,planRep='';
+/* --- calls --- */
+const outc=LS.get('dfCallOutcomes',{});
+V2.calls=el=>{let rep='';const draw=()=>{const rows=C.calls().map(c=>({...c,v:D.vkOfCust[c.c],n:D.names[c.c]})).filter(c=>!rep||c.v===rep),reps=[...new Set(rows.map(r=>r.v))].sort((a,b)=>sum(rows.filter(r=>r.v===b),r=>r.mrev)-sum(rows.filter(r=>r.v===a),r=>r.mrev));
+ el.innerHTML=`<h1>${rows.length} reorders to follow up</h1><p class="sub">A customer–product pair is listed when the days since the last order are more than 1.5× its usual gap (at most 120 days). Freight and other charges are left out. Monthly value = average monthly revenue of that pair over the last 6 complete months, excl. VAT.</p>
+ ${kpis([['To call',rows.length,`${new Set(rows.map(r=>r.c)).size} customers`],['Monthly value',eur(sum(rows,r=>r.mrev)),'what these pairs usually bring a month'],['Ticked off',rows.filter(r=>outc[r.c+'|'+r.p]).length,'in this browser']])}
+ <div class="panel card"><div class="lh"><h2>Call list</h2><div class="filters">${repSel('cRep',rep)}</div></div><div class="scroll"><table class="stack"><thead><tr><th>Customer</th><th>Product</th><th class="n">Usual gap</th><th class="n">Last order</th><th class="n">Days since</th><th class="n">Monthly value</th><th>Contact</th><th>Outcome</th></tr></thead><tbody>
+ ${reps.map(v=>{const R=rows.filter(r=>r.v===v).sort((a,b)=>b.mrev-a.mrev);return `<tr class="grp"><td colspan="5">${esc(v)} · ${R.length}</td><td class="n">${eur(sum(R,r=>r.mrev))}</td><td></td><td></td></tr>`+R.map(r=>{const k=r.c+'|'+r.p,o=outc[k];return `<tr><td>${cn(r.c)}</td><td>${esc(r.p)}</td><td class="n">${Math.round(r.gap)} d</td><td class="n">${dl(r.last)}</td><td class="n">${r.since}</td><td class="n">${eur(r.mrev)}</td><td>${contactBar(r.c,'reorder')}</td><td><div class="oc" data-k="${esc(k)}">${['Called','Ordered','Lost'].map(x=>`<button class="${o===x?'on':''}">${x}</button>`).join('')}</div></td></tr>`}).join('')}).join('')||'<tr><td colspan="8" class="empty">Nothing to follow up right now.</td></tr>'}
+ </tbody><tfoot><tr><td colspan="5">Total</td><td class="n">${eur(sum(rows,r=>r.mrev))}</td><td colspan="2"></td></tr></tfoot></table></div><p class="note">Outcome buttons are remembered in this browser only, until DairyFlow gets its own storage.</p></div>`;
+ bindCl(el);if($('#cRep'))$('#cRep').onchange=e=>{rep=e.target.value;draw()};
+ el.querySelectorAll('.oc button').forEach(b=>b.onclick=()=>{const k=b.parentElement.dataset.k;outc[k]=outc[k]===b.textContent?undefined:b.textContent;LS.set('dfCallOutcomes',outc);b.parentElement.querySelectorAll('button').forEach(x=>x.classList.toggle('on',outc[k]===x.textContent))})};draw()};
+/* --- collections --- */
+V2.collect=el=>{let rep='',only='over',all=false;const draw=()=>{const base=C.collect().filter(c=>c.open>0&&(!rep||D.vkOfCust[c.c]===rep)),rows0=base.filter(c=>only==='all'||c.over>0).sort((a,b)=>b.over30-a.over30||b.over-a.over),rows=all?rows0:rows0.slice(0,50);
+ el.innerHTML=`<h1>${eurS(sum(base,c=>c.over30))} is more than 30 days late</h1><p class="sub">Invoices dated from 7 April 2026 that Microfas still shows open, incl. VAT (what the customer owes). Ranked by the amount more than 30 days late. "Usually pays" = average days after the due date on this customer's paid invoices.</p>
+ ${kpis([['Open, incl. VAT',eur(sum(base,c=>c.open)),`${base.length} customers`],['Overdue',eur(sum(base,c=>c.over)),`${base.filter(c=>c.over>0).length} customers`],['More than 30 days',eur(sum(base,c=>c.over30)),`${base.filter(c=>c.over30>0).length} customers`],['Ordering while overdue',base.filter(c=>c.over>0&&c.oo>0).length,'customers with open orders']])}
+ <div class="panel card"><div class="lh"><h2>Who to chase first</h2><div class="filters">${repSel('kRep',rep)}<select id="kOnly"><option value="over"${only==='over'?' selected':''}>Overdue only</option><option value="all"${only==='all'?' selected':''}>All with open invoices</option></select></div></div>
+ <div class="scroll"><table class="stack"><thead><tr><th>Customer</th><th>Verkoper</th><th class="n">Open</th><th class="n">Overdue</th><th class="n">&gt; 30 days</th><th class="n">Oldest</th><th class="n">Usually pays</th><th>Note</th><th></th></tr></thead><tbody>
+ ${rows.map(c=>`<tr><td>${cn(c.c)}</td><td>${esc(D.vkOfCust[c.c])}</td><td class="n">${eur2(c.open)}</td><td class="n">${c.over?eur2(c.over):'—'}</td><td class="n">${c.over30?eur2(c.over30):'—'}</td><td class="n">${c.oldest?c.oldest+' d late':'—'}</td><td class="n">${c.late==null?'—':c.late<=0?'on time':Math.round(c.late)+' d late'}</td><td>${c.oo>0&&c.over>0?`<span class="tag t-red">Open orders ${eurS(c.oo)}</span>`:''}${c.cred<0?` <span class="tag t-g">Credit ${eurS(c.cred)}</span>`:''}</td><td><span class="ca">${(D.contacts[c.c]?.[0]||[]).slice(0,1).map(p=>`<a href="tel:${p}" title="${p}">${IC.tel}Call</a>`).join('')}${c.over>0?`<button class="btn ghost sm" data-r="${c.c}">Reminder</button>`:''}</span></td></tr>`).join('')||'<tr><td colspan="9" class="empty">Nothing overdue.</td></tr>'}
+ </tbody><tfoot><tr><td colspan="2">${rows0.length} customers ${rows0.length>rows.length?`<button class="btn ghost sm" id="kAll">Show all</button>`:''}</td><td class="n">${eur2(sum(rows0,c=>c.open))}</td><td class="n">${eur2(sum(rows0,c=>c.over))}</td><td class="n">${eur2(sum(rows0,c=>c.over30))}</td><td colspan="4"></td></tr></tfoot></table></div>
+ <p class="note">Payments booked after ${dl(D.meta.lt)} are not included. Check Microfas before sending a reminder.</p></div>`;
+ bindCl(el);if($('#kRep'))$('#kRep').onchange=e=>{rep=e.target.value;draw()};$('#kOnly').onchange=e=>{only=e.target.value;draw()};if($('#kAll'))$('#kAll').onclick=()=>{all=true;draw()};el.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>openRem(+b.dataset.r))};draw()};
+/* --- not invoiced --- */
+const STG={deliveredNotInvoiced:'Delivered, not invoiced',toDeliver:'Still to deliver',noLines:'No order lines',invoiced:'Invoiced, status still open'};
+V2.unb=el=>{let st='deliveredNotInvoiced';const draw=()=>{const lt=tOf(D.meta.lt),all=C.orders(),rows=all.filter(o=>o.stage===st).sort((a,b)=>b.val-a.val||a.due.localeCompare(b.due)),d=o=>lt-tOf(o.due);
+ el.innerHTML=`<h1>${eurS(sum(all.filter(o=>o.stage==='deliveredNotInvoiced'),o=>o.val))} delivered but not yet invoiced</h1><p class="sub">Open sales orders in Microfas, matched against deliveries and invoices. Value from the prices on the order lines, excl. VAT; lines without a price count as €0.</p>
+ ${kpis(Object.entries(STG).map(([k,l])=>{const R=all.filter(o=>o.stage===k);return[l,R.length,R.some(o=>o.val)?eur(sum(R,o=>o.val)):'orders']}))}
+ <div class="panel card"><div class="lh"><h2>${STG[st]}</h2><div class="filters"><select id="uSt">${Object.entries(STG).map(([k,l])=>`<option value="${k}"${k===st?' selected':''}>${l}</option>`).join('')}</select></div></div>
+ <div class="scroll"><table class="stack"><thead><tr><th>Order</th><th>Customer</th><th>Verkoper</th><th class="n">Ordered</th><th class="n">Requested</th><th class="n">Days since requested</th><th class="n">Value</th><th>Microfas status</th></tr></thead><tbody>
+ ${rows.map(o=>`<tr><td>${esc(o.no)}</td><td>${cn(o.c)}</td><td>${esc(D.vkOfCust[o.c])}</td><td class="n">${dl(o.od)}</td><td class="n">${dl(o.due)}</td><td class="n">${d(o)>0?d(o):'—'}</td><td class="n">${o.val?eur2(o.val):'—'}</td><td>${esc(o.st)}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">No orders in this stage.</td></tr>'}
+ </tbody><tfoot><tr><td colspan="6">${rows.length} orders</td><td class="n">${eur2(sum(rows,o=>o.val))}</td><td></td></tr></tfoot></table></div></div>`;bindCl(el);$('#uSt').onchange=e=>{st=e.target.value;draw()}};draw()};
+/* --- contracts --- */
+V2.con=el=>{const R=C.contracts(),cls={Behind:'t-red','Ended short':'t-red',Ahead:'t-sky','On track':'t-gr',Delivered:'t-gr','Check quantity':'t-amb'};
+ el.innerHTML=`<h1>${R.length} contract${R.length===1?'':'s'}${R.filter(r=>r.st==='Behind'||r.st==='Ended short').length?`, ${R.filter(r=>r.st==='Behind'||r.st==='Ended short').length} short of quantity`:''}</h1><p class="sub">Delivered kg of the contract's product group to the contract customer within the term, compared with how much of the term has passed. Behind = delivered share more than 10 points below the share of the term passed; Ended short = term over with less than the contracted quantity delivered.</p>
+ ${kpis([['Contracted',ton(sum(R,r=>r.odd?0:r.qty)),'kg on the contracts (unclear ones left out)'],['Delivered',ton(sum(R,r=>r.odd?0:r.del)),'on the same contracts'],['Ending in 60 days',R.filter(r=>r.left>=0&&r.left<=60).length,'contracts'],['Ended',R.filter(r=>r.left<0).length,'term already over']])}
+ <div class="panel card"><div class="scroll"><table class="stack"><thead><tr><th>Customer</th><th>Product group</th><th class="n">Contracted</th><th class="n">Delivered</th><th class="n">Delivered %</th><th class="n">Term passed</th><th class="n">Term</th><th>Status</th></tr></thead><tbody>
+ ${R.map(r=>`<tr><td>${cn(r.c)}</td><td>${esc(r.g)}</td><td class="n">${NF.format(r.qty)} kg</td><td class="n">${NF.format(r.del)} kg</td><td class="n">${r.pct==null||r.odd?'—':NF.format(Math.round(r.pct))+'%'}</td><td class="n">${Math.round(r.el)}%</td><td class="n">${dl(r.from)} – ${dl(r.to)}<br><span class="sub" style="font-size:13px">${r.left<0?'ended '+(-r.left)+' days ago':r.left+' days left'}</span></td><td><span class="tag ${cls[r.st]||'t-g'}">${r.st}</span>${r.unc.length?`<br><span class="sub" style="font-size:12.5px">${r.unc.join(', ')} not counted (monthly totals only)</span>`:''}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">No contracts for your customers.</td></tr>'}
+ </tbody></table></div><p class="note">"Check quantity": delivered is more than 5× the contracted quantity, so the quantity in Microfas is probably in another unit (tonnes or bags). Fix it in Microfas.</p></div>`;bindCl(el)};
+/* --- cash --- */
+V2.cash=el=>{const r=C.cash(),wsum=sum(r.wk,w=>w.inv+w.ord),wl=w=>`${dl(isoT(w.a)).replace(/ \d{4}$/,'')} – ${dl(isoT(w.b)).replace(/ \d{4}$/,'')}`;
+ el.innerHTML=`<h1>${eurS(wsum)} expected in the next 8 weeks</h1><p class="sub">Incl. VAT. Each open invoice is expected on its due date plus the number of days that customer usually pays late (or early). Delivered-but-not-invoiced and still-to-deliver orders are assumed to be invoiced 7 days after today or the requested date, then paid the same way. Invoices already later than the customer's usual pattern are shown apart, because their timing is uncertain.</p>
+ ${kpis([['Next 8 weeks',eur(wsum),`${eurS(sum(r.wk,w=>w.inv))} invoices · ${eurS(sum(r.wk,w=>w.ord))} orders`],['Later than 8 weeks',eur(r.later.inv+r.later.ord),'mostly long payment terms'],['Late beyond usual pattern',eur(r.beyond.amt),`${r.beyond.rows.length} invoices · chase these`],['Open credits',eur(r.credits.amt),'to be set off']])}
+ <div class="cols"><div class="panel card"><h2>Expected per week</h2><div class="fig2" id="cashFig" style="min-height:320px"><svg></svg></div><p class="note"><span class="dot" style="background:var(--sky)"></span>Open invoices <span class="dot" style="background:var(--navy);margin-left:12px"></span>Orders still to invoice</p></div>
+ <div class="panel card"><h2>How it adds up</h2><div class="kv" style="margin-top:10px"><span>Expected in weeks 1–8</span><b>${eur2(sum(r.wk,w=>w.inv))}</b><span>Later than 8 weeks</span><b>${eur2(r.later.inv)}</b><span>Late beyond usual pattern</span><b>${eur2(r.beyond.amt)}</b><span>Open credits</span><b>${eur2(r.credits.amt)}</b><span style="color:var(--ink);font-weight:700">= Open invoices, incl. VAT</span><b>${eur2(r.total)}</b></div><p class="note">${Math.round(sum(r.wk,w=>w.inv)+r.later.inv+r.beyond.amt+r.credits.amt)===Math.round(r.total)?'✓ Adds up to the open receivables in Microfas, to the cent.':'✗ Does not add up.'} Orders (${eur2(r.ordTot)}) come on top: they are not invoiced yet.</p></div></div>
+ <div class="panel card"><h2>Week by week</h2><div class="scroll"><table class="stack"><thead><tr><th>Week</th><th class="n">Invoices</th><th class="n">Orders to invoice</th><th class="n">Total</th><th class="n">Items</th></tr></thead><tbody>${r.wk.map(w=>`<tr data-w="${w.k}" style="cursor:pointer"><td><a class="cl">${wl(w)}</a></td><td class="n">${eur(w.inv)}</td><td class="n">${eur(w.ord)}</td><td class="n">${eur(w.inv+w.ord)}</td><td class="n">${w.rows.length}</td></tr>`).join('')}<tr data-w="later" style="cursor:pointer"><td><a class="cl">Later</a></td><td class="n">${eur(r.later.inv)}</td><td class="n">${eur(r.later.ord)}</td><td class="n">${eur(r.later.inv+r.later.ord)}</td><td class="n">${r.later.rows.length}</td></tr><tr data-w="beyond" style="cursor:pointer"><td><a class="cl">Late beyond usual pattern</a></td><td class="n">${eur(r.beyond.amt)}</td><td class="n">—</td><td class="n">${eur(r.beyond.amt)}</td><td class="n">${r.beyond.rows.length}</td></tr></tbody></table></div><div id="cashRows"></div></div>`;
+ const svg=$('#cashFig svg'),drawC=()=>{const Wd=svg.clientWidth,H=svg.clientHeight;if(Wd<120||H<80)return;const pad=[16,10,34,64],mx=Math.max(1,...r.wk.map(w=>w.inv+w.ord)),bw=(Wd-pad[3]-pad[1])/8,y=v=>pad[0]+(H-pad[0]-pad[2])*(1-v/mx);
+  svg.innerHTML=[0,.5,1].map(f=>`<line x1="${pad[3]}" x2="${Wd-pad[1]}" y1="${y(mx*f)}" y2="${y(mx*f)}" stroke="currentColor" opacity=".12"/><text x="${pad[3]-6}" y="${y(mx*f)+4}" text-anchor="end" font-size="12" fill="currentColor" opacity=".6">${eurS(mx*f)}</text>`).join('')+r.wk.map((w,i)=>{const x=pad[3]+i*bw+bw*.18,ww=bw*.64;return `<rect x="${x}" y="${y(w.inv)}" width="${ww}" height="${y(0)-y(w.inv)}" rx="3" fill="#40BCF3"/><rect x="${x}" y="${y(w.inv+w.ord)}" width="${ww}" height="${Math.max(0,y(w.inv)-y(w.inv+w.ord)-2)}" rx="3" fill="#1F3741"/><text x="${x+ww/2}" y="${H-12}" text-anchor="middle" font-size="12" fill="currentColor" opacity=".7">${Wd<520?'W'+(i+1):dl(isoT(w.a)).replace(/ \d{4}$/,'')}</text>`}).join('')};
+ new ResizeObserver(drawC).observe(svg);
+ el.querySelectorAll('tr[data-w]').forEach(t=>t.onclick=()=>{const k=t.dataset.w,B=k==='later'?r.later:k==='beyond'?r.beyond:r.wk[+k],rows=B.rows.slice().sort((a,b)=>b.amt-a.amt);
+  $('#cashRows').innerHTML=`<h3 style="margin-top:16px">${k==='later'?'Later than 8 weeks':k==='beyond'?'Late beyond usual pattern':wl(B)} · ${rows.length} items</h3><div class="scroll"><table class="stack"><thead><tr><th>Customer</th><th>Type</th><th>Number</th><th class="n">Expected</th><th class="n">Amount</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${cn(x.c)}</td><td>${x.kind}</td><td>${esc(x.no)}</td><td class="n">${k==='beyond'?'due '+dl(x.due):dl(x.exp)}</td><td class="n">${eur2(x.amt)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4">Total</td><td class="n">${eur2(sum(rows,x=>x.amt))}</td></tr></tfoot></table></div>`;bindCl($('#cashRows'))})};
+/* --- price & margin --- */
+V2.price=el=>{const r=C.price(),M=D.meta.months,ms=[...r.byM.keys()].sort((a,b)=>a-b),tot={rev:sum([...r.byM.values()],x=>x.rev),cost:sum([...r.byM.values()],x=>x.cost)},pn=p=>esc(D.products[p][0]);
+ el.innerHTML=`<h1>${r.alerts.length} customer–product pairs sold at under 5% margin in the last 90 days</h1><p class="sub">Estimated gross margin = revenue − kg × the purchase price valid on the invoice date (price list "inkoop"). Only products with a purchase price in Microfas: ${[...r.costs.keys()].length} products. Freight, discounts and stock effects are not included.</p>
+ ${kpis([['Estimated margin',tot.rev?NF1.format((tot.rev-tot.cost)/tot.rev*100)+'%':'—',`${eurS(tot.rev-tot.cost)} on ${eurS(tot.rev)} revenue`],['Under 5% margin',r.alerts.length,`${eurS(sum(r.alerts,a=>a.rev))} revenue, last 90 days`],['Far under the usual price',r.spread.length,`${eurS(sum(r.spread,s=>s.gap))} below the average price`]])}
+ <div class="cols"><div class="panel card"><h2>Margin per month</h2><div class="rows">${ms.map(m=>{const x=r.byM.get(m),pc=x.rev?(x.rev-x.cost)/x.rev*100:0;return `<div class="r"><span>${MN[+M[m].slice(5)-1]} ${M[m].slice(0,4)} <span class="sub" style="font-size:13px">· ${eurS(x.rev)} revenue</span></span><b>${NF1.format(pc)}%</b><span class="bar"><i style="width:${Math.max(1,Math.min(100,pc*2))}%;background:${pc<5?'#D95C5C':pc<10?'#E5A93D':'#40BCF3'}"></i></span></div>`}).join('')}</div><p class="note">Bar length: margin % (full bar = 50%).</p></div>
+ <div class="panel card"><h2>Purchase price changes passed on?</h2>${[...r.costs].map(([p,L])=>{const y=r.byP.get(p);if(!y)return'';const mm=[...y.m.keys()].sort((a,b)=>a-b);return `<p style="margin:12px 0 4px;font-weight:700">${pn(p)}</p><div class="sub" style="font-size:13.5px">Purchase price: ${L.map(c=>`${eur2(c.cents)}/kg from ${dl(c.from)}`).join(' → ')}</div><div class="sub" style="font-size:13.5px">Average sale price: ${mm.map(m=>{const z=y.m.get(m);return z.kg?`${MN[+M[m].slice(5)-1]} ${eur2(z.rev/z.kg)}`:''}).filter(Boolean).join(' · ')}</div>`}).join('')}</div></div>
+ <div class="panel card"><h2>Sold at under 5% margin (last 90 days)</h2><div class="scroll"><table class="stack"><thead><tr><th>Customer</th><th>Product</th><th class="n">kg</th><th class="n">Revenue</th><th class="n">Purchase cost</th><th class="n">Margin</th><th class="n">Last sale</th></tr></thead><tbody>${r.alerts.map(a=>`<tr><td>${cn(a.c)}</td><td>${pn(a.p)}</td><td class="n">${NF.format(a.kg)}</td><td class="n">${eur2(a.rev)}</td><td class="n">${eur2(a.cost)}</td><td class="n"><span class="tag ${a.rev<a.cost?'t-red':'t-amb'}">${NF1.format((a.rev-a.cost)/a.rev*100)}%</span></td><td class="n">${dl(isoT(a.last))}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No low-margin sales in the last 90 days.</td></tr>'}</tbody><tfoot><tr><td colspan="3">${r.alerts.length} pairs</td><td class="n">${eur2(sum(r.alerts,a=>a.rev))}</td><td class="n">${eur2(sum(r.alerts,a=>a.cost))}</td><td colspan="2"></td></tr></tfoot></table></div></div>
+ <div class="panel card"><h2>Customers paying far under the usual price</h2><p class="sub">Since 1 April 2026, products sold by weight with at least 1 t sold: customers (at least 500 kg) paying more than 10% under the average price per kg of all customers. "Below average" = (average − their price) × their kg.</p><div class="scroll"><table class="stack"><thead><tr><th>Customer</th><th>Product</th><th class="n">kg</th><th class="n">Their price</th><th class="n">Average</th><th class="n">Below average</th></tr></thead><tbody>${r.spread.slice(0,60).map(s=>`<tr><td>${cn(s.c)}</td><td>${pn(s.p)}</td><td class="n">${NF.format(s.kg)}</td><td class="n">${eur2(s.price)}/kg</td><td class="n">${eur2(s.avg)}/kg</td><td class="n">${eur(s.gap)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No customers far under the average price.</td></tr>'}</tbody><tfoot><tr><td colspan="5">${r.spread.length} pairs${r.spread.length>60?' (top 60 shown)':''}</td><td class="n">${eur(sum(r.spread,s=>s.gap))}</td></tr></tfoot></table></div><p class="note">A lower price can be agreed on purpose (volume, contract). This list is a prompt to check, not a judgement.</p></div>`;bindCl(el)};
+/* --- buying plan --- */
+V2.buy=el=>{let g=0;const b=C.buy(),GN=['Milk powder','Feed'],draw=()=>{const o=b.out[g],next4=sum(o.fc.slice(0,4),x=>x.mid);
+ el.innerHTML=`<h1>About ${ton(next4)} of ${GN[g].toLowerCase()} in the next 4 weeks</h1><p class="sub">Estimate: the average of the last 8 complete weeks (${ton(o.mean)} a week), adjusted for the season with how ${GN[g].toLowerCase()} sales moved month to month in 2025. The band is ± one standard deviation of those 8 weeks. Microfas has no stock levels in the export, so this is demand, not a purchase quantity.</p>
+ <div class="filters" style="margin-top:12px"><div class="seg" style="background:var(--navy)">${GN.map((n,i)=>`<button data-g="${i}" class="${i===g?'on':''}">${n}</button>`).join('')}</div></div>
+ ${kpis([['Last 8 weeks, average',ton(o.mean)+' / week',`± ${ton(o.sd)}`],['Next 4 weeks',ton(next4),`${ton(sum(o.fc.slice(0,4),x=>x.lo))} – ${ton(sum(o.fc.slice(0,4),x=>x.hi))}`],['Next 8 weeks',ton(sum(o.fc,x=>x.mid)),`${ton(sum(o.fc,x=>x.lo))} – ${ton(sum(o.fc,x=>x.hi))}`],['Still to deliver on open orders',ton(b.openKg),'all products sold by weight']])}
+ <div class="panel card"><h2>Tonnes per week: sold and expected</h2><div class="fig2" id="buyFig" style="min-height:340px"><svg></svg></div><p class="note"><span class="dot" style="background:#40BCF3"></span>Sold (current week so far shown lighter) <span class="dot" style="background:#E5A93D;margin-left:12px"></span>Expected, with band</p></div>
+ <div class="panel card"><h2>Expected per week</h2><div class="scroll"><table class="stack"><thead><tr><th>Week starting</th><th class="n">Season factor</th><th class="n">Expected</th><th class="n">Low</th><th class="n">High</th></tr></thead><tbody>${o.fc.map(x=>`<tr><td>${dl(isoT(x.m))}</td><td class="n">${NF2.format(x.f)}</td><td class="n">${ton(x.mid)}</td><td class="n">${ton(x.lo)}</td><td class="n">${ton(x.hi)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2">8 weeks</td><td class="n">${ton(sum(o.fc,x=>x.mid))}</td><td class="n">${ton(sum(o.fc,x=>x.lo))}</td><td class="n">${ton(sum(o.fc,x=>x.hi))}</td></tr></tfoot></table></div></div>`;
+ el.querySelectorAll('[data-g]').forEach(x=>x.onclick=()=>{g=+x.dataset.g;draw()});
+ const svg=$('#buyFig svg'),drawB=()=>{const Wd=svg.clientWidth,H=svg.clientHeight;if(Wd<120||H<80)return;const h=o.hist.slice(-20),pts=[...h.map(x=>({m:x.m,v:x.kg,p:x.partial})),...o.fc.map(x=>({m:x.m,f:x}))],n=pts.length,pad=[16,10,34,56],mx=Math.max(1,...h.map(x=>x.kg),...o.fc.map(x=>x.hi)),bw=(Wd-pad[3]-pad[1])/n,y=v=>pad[0]+(H-pad[0]-pad[2])*(1-v/mx);
+  svg.innerHTML=[0,.5,1].map(f=>`<line x1="${pad[3]}" x2="${Wd-pad[1]}" y1="${y(mx*f)}" y2="${y(mx*f)}" stroke="currentColor" opacity=".12"/><text x="${pad[3]-6}" y="${y(mx*f)+4}" text-anchor="end" font-size="12" fill="currentColor" opacity=".6">${NF.format(Math.round(mx*f/1000))} t</text>`).join('')+pts.map((p,i)=>{const x=pad[3]+i*bw+bw*.15,ww=bw*.7,lab=(i%(Wd<520?6:3)===0)?`<text x="${x+ww/2}" y="${H-12}" text-anchor="middle" font-size="11.5" fill="currentColor" opacity=".7">${dl(isoT(p.m)).replace(/ \d{4}$/,'')}</text>`:'';
+   return p.f?`<rect x="${x}" y="${y(p.f.hi)}" width="${ww}" height="${Math.max(1,y(p.f.lo)-y(p.f.hi))}" rx="3" fill="#E5A93D" opacity=".28"/><rect x="${x}" y="${y(p.f.mid)-1.5}" width="${ww}" height="3" fill="#E5A93D"/>`+lab:`<rect x="${x}" y="${y(p.v)}" width="${ww}" height="${y(0)-y(p.v)}" rx="3" fill="#40BCF3" opacity="${p.p?.4:1}"/>`+lab}).join('')};
+ new ResizeObserver(drawB).observe(svg)};draw()};
+/* --- visit briefing --- */
+V2.brief=el=>{const mine=CU.filter(o=>inS(o.i)).sort((a,b)=>b.r12-a.r12);if(briefC==null||!inS(briefC))briefC=(C.calls()[0]||{}).c??mine[0]?.i;
+ const o=byI.get(briefC),c=briefC;if(c==null){el.innerHTML='<p class="empty">No customers.</p>';return}
+ const b=C.brief(c),co=collBy.get(c),cl=callsBy.get(c)||[],ub=unbBy.get(c)||[],oo=C.orders().filter(x=>x.c===c&&x.stage==='toDeliver'),con=C.contracts().filter(x=>x.c===c),pn=p=>esc(D.products[p][0]),mx=Math.max(1,...b.months.map(m=>m.rev));
+ el.innerHTML=`<div class="lh"><div><p class="eyebrow" style="margin:0">Visit briefing</p><h1 style="margin:0">${esc(D.names[c])}</h1><p class="sub">${o?`${esc(o.pc)} ${esc(o.pl)} · ${o.cc} · `:''}${esc(D.vkOfCust[c])} · credit period ${D.terms[c]==null?'—':D.terms[c]+' days'}</p><p class="sub" style="margin-top:4px">${contactText(c)}</p><div style="margin-top:8px">${contactBar(c,'visit')}</div></div>
+ <div class="filters"><input list="bList" id="bFind" placeholder="Find a customer" autocomplete="off" aria-label="Find a customer"><datalist id="bList">${mine.map(x=>`<option value="${esc(x.n)}">`).join('')}</datalist><button class="btn ghost sm" id="bCopy" style="color:var(--ink)">Copy summary</button></div></div>
+ <div class="cols" style="margin-top:14px"><div><h3>Before you go</h3>
+ ${co&&co.over>0?`<div class="alert">Overdue: <b>${eur2(co.over)}</b> incl. VAT, oldest ${co.oldest} days late. Ask about payment before taking a new order.</div>`:''}
+ ${cl.length?`<div class="alert a">Past their usual reorder: ${cl.map(x=>`<b>${esc(x.p)}</b> (every ${Math.round(x.gap)} days, last ${dl(x.last)})`).join('; ')}.</div>`:''}
+ ${ub.length?`<div class="alert o">${ub.length} order(s) delivered but not invoiced yet (${eur2(sum(ub,x=>x.val))}). Check with the office.</div>`:''}
+ ${oo.length?`<div class="alert s">${oo.length} order(s) still to deliver, requested ${oo.map(x=>dl(x.due)).join(', ')}.</div>`:''}
+ ${con.map(x=>`<div class="alert ${x.st==='Behind'?'a':'s'}">Contract ${esc(x.g)}: ${NF.format(x.del)} of ${NF.format(x.qty)} kg delivered, ${Math.round(x.el)}% of the term passed (${x.st}).</div>`).join('')}
+ ${o&&o.py>0?`<div class="alert ${o.y<o.py*.8?'a':'g'}">${YTD.l}: ${eur(o.y)}, ${o.y>=o.py?'up':'down'} ${NF.format(Math.abs(Math.round((o.y/o.py-1)*100)))}% on ${YTD.p} (${eur(o.py)}).</div>`:''}
+ ${!(co&&co.over>0)&&!cl.length&&!ub.length&&!oo.length&&!con.length?'<div class="alert g">No open issues: a good moment to talk about new products.</div>':''}</div>
+ <div class="card" style="padding:16px"><div class="kv"><span>Revenue, last 12 months</span><b>${o?eur(o.r12):'—'}</b><span>Milk powder & feed</span><b>${o?ton(o.k12):'—'}</b><span>Customer since</span><b>${o?dl(o.fs):'—'}</b><span>Last order</span><b>${o?dl(o.ls):'—'}</b><span>Open invoices</span><b>${co?eur2(co.open):'—'}</b><span>Usually pays</span><b>${co&&co.late!=null?(co.late<=0?'on time':Math.round(co.late)+' days late'):'—'}</b></div>
+ <div style="display:flex;align-items:flex-end;gap:3px;height:70px;margin-top:14px">${b.months.map(m=>`<div title="${MN[+m.ym.slice(5)-1]} ${m.ym.slice(0,4)}: ${eur(m.rev)}" style="flex:1;height:${Math.max(2,Math.max(0,m.rev)/mx*100)}%;background:#40BCF3;border-radius:2px"></div>`).join('')}</div><div class="sub" style="font-size:12.5px;display:flex;justify-content:space-between"><span>${MN[+b.months[0].ym.slice(5)-1]} ${b.months[0].ym.slice(2,4)}</span><span>Revenue per month</span><span>${MN[+b.months.at(-1).ym.slice(5)-1]} ${b.months.at(-1).ym.slice(2,4)}</span></div></div></div>
+ <div class="panel card"><h2>What they buy (since 1 April 2026)</h2><p class="sub">Their price compared with the average price all customers paid for the same product. Freight and other charges have no price comparison.</p><div class="scroll"><table class="stack"><thead><tr><th>Product</th><th class="n">Quantity</th><th class="n">Revenue</th><th class="n">Their price</th><th class="n">Average</th><th class="n">vs average</th><th class="n">Usual gap</th><th class="n">Last order</th></tr></thead><tbody>
+ ${b.lines.map(x=>`<tr><td>${pn(x.p)}</td><td class="n">${x.kgP?NF.format(x.kg)+' kg':NF1.format(x.q)+' pcs'}</td><td class="n">${eur2(x.rev)}</td><td class="n">${x.mine==null?'—':eur2(x.mine)+(x.kgP?'/kg':'/pc')}</td><td class="n">${x.avg==null?'—':eur2(x.avg)}</td><td class="n">${x.diff==null?'—':`<span class="tag ${x.diff<-10?'t-amb':x.diff>10?'t-sky':'t-g'}">${x.diff>0?'+':''}${NF.format(Math.round(x.diff))}%</span>`}</td><td class="n">${x.gap?Math.round(x.gap)+' d':'—'}</td><td class="n">${x.last?dl(x.last):'—'}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">No sales since April 2026.</td></tr>'}
+ </tbody><tfoot><tr><td colspan="2">${b.lines.length} products</td><td class="n">${eur2(sum(b.lines,x=>x.rev))}</td><td colspan="5"></td></tr></tfoot></table></div></div>
+ <div class="panel card"><h2>Others like them also buy</h2><p class="sub">Products bought by at least 15% of the ${b.peers} customers whose main product group is the same, and not by this customer.</p><div class="rows">${b.cross.map(x=>`<div class="r"><span>${pn(x.p)}</span><b>${NF.format(Math.round(x.share))}% of similar farms</b><span class="bar"><i style="width:${x.share}%"></i></span></div>`).join('')||'<p class="empty">Nothing stands out.</p>'}</div></div>
+ ${co&&co.inv.length?`<div class="panel card"><h2>Open invoices</h2><div class="scroll"><table class="stack"><thead><tr><th>Invoice</th><th class="n">Date</th><th class="n">Due</th><th class="n">Days late</th><th class="n">Open, incl. VAT</th></tr></thead><tbody>${co.inv.map(x=>`<tr><td>${esc(x.no)}</td><td class="n">${dl(x.d)}</td><td class="n">${dl(x.due)}</td><td class="n">${x.late>0?x.late:'—'}</td><td class="n">${eur2(x.incl)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4">Total</td><td class="n">${eur2(sum(co.inv,x=>x.incl))}</td></tr></tfoot></table></div></div>`:''}`;
+ $('#bFind').onchange=e=>{const v=e.target.value.toLowerCase(),x=mine.find(x=>x.n.toLowerCase()===v)||mine.find(x=>(x.n+' '+x.pl).toLowerCase().includes(v));if(x){briefC=x.i;V2.brief(el)}};
+ $('#bCopy').onclick=async()=>{const t=[D.names[c],o?`${o.pc} ${o.pl}`:'',`Revenue last 12 months: ${o?eur(o.r12):'—'}`,co&&co.over>0?`Overdue: ${eur2(co.over)} incl. VAT`:'',...cl.map(x=>`Reorder due: ${x.p}`),...b.lines.slice(0,8).map(x=>`${D.products[x.p][0]}: ${x.kgP?NF.format(x.kg)+' kg':NF1.format(x.q)+' pcs'}, ${eur2(x.rev)}`)].filter(Boolean).join('\n');try{await navigator.clipboard.writeText(t);$('#bCopy').textContent='Copied'}catch{$('#bCopy').textContent='Copy blocked'}}};
+
+/* ================= map module ================= */
+const LAYERS=[
+ {k:'rev',l:'Revenue 12 m',col:[64,188,243],val:o=>Math.max(0,o.r12),tip:o=>`${eur(o.r12)} in the last 12 months`},
+ {k:'call',l:'Reorder due',col:[229,169,61],val:o=>sum(callsBy.get(o.i)||[],c=>c.mrev),tip:o=>`${(callsBy.get(o.i)||[]).length} product(s) past usual reorder`},
+ {k:'over',l:'Overdue',col:[217,92,92],val:o=>collBy.get(o.i)?.over||0,tip:o=>`${eur(collBy.get(o.i)?.over||0)} overdue incl. VAT`},
+ {k:'unb',l:'Not invoiced',col:[224,123,57],val:o=>sum(unbBy.get(o.i)||[],x=>x.val),tip:o=>`${(unbBy.get(o.i)||[]).length} order(s) delivered, not invoiced`},
+ {k:'lost',l:'Lost',col:[150,166,173],val:o=>o.lost?Math.max(o.py,0):0,tip:o=>`No order since ${dl(o.ls)} · bought ${eur(o.py)} in ${YTD.p}`}];
+let layer=LAYERS[0],mode='3d',repF='',sel=null,route=[],tab='rank',cv,ctx,wrapEl,W=0,H=0,dpr=1,hits=[],raf=0,anim=0;const plan=new Set();
+const V={cx:.52,cy:.33,z:4000,b:0,p:0,tp:.95};
+const myCU=()=>CU.filter(o=>inS(o.i)&&(!repF||D.vkOfCust[o.i]===repF));
+function proj(mx,my){const dx=(mx-V.cx)*V.z,dy=(my-V.cy)*V.z,cb=Math.cos(V.b),sb=Math.sin(V.b),rx=dx*cb-dy*sb,ry=dx*sb+dy*cb,sp=Math.sin(V.p),Dd=H*1.6,k=Math.max(.25,Dd/(Dd-ry*sp));return[W/2+rx*k,H*(.5+.06*sp)+ry*Math.cos(V.p)*k,k]}
+function unproj(X,Y){const ry=(Y-H*(.5+.06*Math.sin(V.p)))/Math.max(.3,Math.cos(V.p)),rx=X-W/2,cb=Math.cos(V.b),sb=Math.sin(V.b);return[V.cx+(rx*cb+ry*sb)/V.z,V.cy+(-rx*sb+ry*cb)/V.z]}
+const ring=r=>{let f=true;for(const p of r){const q=proj(p[2],p[3]);if(f){ctx.moveTo(q[0],q[1]);f=false}else ctx.lineTo(q[0],q[1])}ctx.closePath()};
+const drawMap=()=>{cancelAnimationFrame(raf);raf=requestAnimationFrame(renderMap)};
+function regionVals(){const a=D.regions.map(()=>0);for(const o of myCU())if(o.rg>=0)a[o.rg]+=layer.val(o);return a}
+function renderMap(){if(!ctx||!document.body.contains(cv))return;ctx.setTransform(dpr,0,0,dpr,0,0);const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0A151B');g.addColorStop(1,'#132A35');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.lineJoin='round';
+ for(const c of D.countries){ctx.beginPath();for(const r of c.rr)ring(r);ctx.fillStyle=c.home?'#1C3642':'#162A33';ctx.fill('evenodd');ctx.strokeStyle='#2E4B59';ctx.lineWidth=1;ctx.stroke()}
+ const shade=mode==='regions',rv=regionVals(),rmax=Math.max(1,...rv);
+ D.regions.forEach((rg,k)=>{ctx.beginPath();for(const r of rg.rr)ring(r);if(shade&&rv[k]>0){const a=.12+.75*Math.sqrt(rv[k]/rmax),c=layer.col;ctx.fillStyle=`rgba(${c},${a})`;ctx.fill('evenodd')}ctx.strokeStyle='rgba(130,170,185,.3)';ctx.lineWidth=.8;ctx.stroke()});
+ if(route.length>1){ctx.beginPath();route.forEach((i,j)=>{const o=byI.get(i),q=proj(o.mx,o.my);j?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])});ctx.strokeStyle='rgba(64,188,243,.35)';ctx.lineWidth=7;ctx.stroke();ctx.strokeStyle='#9BE0FF';ctx.lineWidth=2.2;ctx.setLineDash([7,5]);ctx.stroke();ctx.setLineDash([])}
+ hits=[];const items=myCU().map(o=>({o,v:layer.val(o)})).filter(x=>x.v>0),vmax=Math.max(1,...items.map(x=>x.v)),sp=Math.sin(V.p),zf=Math.min(2.2,Math.max(.7,Math.sqrt(V.z/4000))),[cr,cg,cbl]=layer.col;
+ const P=items.map(x=>{const q=proj(x.o.mx,x.o.my);return{...x,X:q[0],Y:q[1],k:q[2]}}).filter(x=>x.X>-40&&x.X<W+40&&x.Y>-60&&x.Y<H+400).sort((a,b)=>a.Y-b.Y);
+ for(const x of P){const s=Math.sqrt(x.v/vmax),on=sel===x.o.i||route.includes(x.o.i);
+  if(mode==='3d'&&sp>.2){const a=3.1*zf*x.k,b=a*.55*Math.cos(V.p),h=Math.max(3,s*H*.42*x.k)*sp,X=x.X,Y=x.Y,f=(m,al)=>`rgba(${Math.round(cr*m)},${Math.round(cg*m)},${Math.round(cbl*m)},${al})`;
+   ctx.beginPath();ctx.ellipse(X,Y+1,a*1.6,b*1.4,0,0,7);ctx.fillStyle='rgba(0,0,0,.35)';ctx.fill();
+   ctx.beginPath();ctx.moveTo(X-a,Y);ctx.lineTo(X,Y+b);ctx.lineTo(X,Y+b-h);ctx.lineTo(X-a,Y-h);ctx.closePath();ctx.fillStyle=f(.55,.95);ctx.fill();
+   ctx.beginPath();ctx.moveTo(X,Y+b);ctx.lineTo(X+a,Y);ctx.lineTo(X+a,Y-h);ctx.lineTo(X,Y+b-h);ctx.closePath();ctx.fillStyle=f(.8,.95);ctx.fill();
+   ctx.beginPath();ctx.moveTo(X-a,Y-h);ctx.lineTo(X,Y+b-h);ctx.lineTo(X+a,Y-h);ctx.lineTo(X,Y-b-h);ctx.closePath();ctx.fillStyle=on?'#fff':f(1.15,1);ctx.fill();if(on){ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke()}
+   hits.push([X-a-2,Y-h-b-2,X+a+2,Y+b+2,x])}
+  else{const r=Math.max(2.2,s*20*zf);ctx.beginPath();ctx.arc(x.X,x.Y,r,0,7);ctx.fillStyle=`rgba(${cr},${cg},${cbl},.55)`;ctx.fill();ctx.lineWidth=on?2.5:1;ctx.strokeStyle=on?'#fff':`rgba(${cr},${cg},${cbl},.95)`;ctx.stroke();hits.push([x.X-r,x.Y-r,x.X+r,x.Y+r,x])}}
+ route.forEach((i,j)=>{const o=byI.get(i),q=proj(o.mx,o.my);ctx.beginPath();ctx.arc(q[0],q[1],10,0,7);ctx.fillStyle='#40BCF3';ctx.fill();ctx.strokeStyle='#0D2733';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#0D2733';ctx.font='700 11px DM Sans';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(j+1,q[0],q[1]+.5)});
+ if(V.z>2500){const top=D.regions.map((rg,k)=>[rg,rv[k]]).filter(t=>t[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,V.z>9000?14:8);ctx.font='600 12px DM Sans';ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const [rg] of top){const q=proj(rg.lx,rg.ly),tw=ctx.measureText(rg.n).width/2;if(q[0]-tw<6||q[0]+tw>W-60||q[1]<30||q[1]>H-20)continue;ctx.lineWidth=3.5;ctx.strokeStyle='rgba(8,18,24,.85)';ctx.strokeText(rg.n,q[0],q[1]-18);ctx.fillStyle='#DCE8ED';ctx.fillText(rg.n,q[0],q[1]-18)}}}
+function fit(pts,pad=.82){if(!pts.length)return;const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+ fly({cx:(x0+x1)/2,cy:(y0+y1)/2+(V.tp>.2?(y1-y0)*.16:0),z:Math.min(60000,Math.max(800,Math.min(W/Math.max(1e-5,x1-x0),H/Math.max(1e-5,y1-y0)/(V.tp>.2?.75:1))*pad)),b:V.b})}
+function fly(t){const s={...V},t0=performance.now(),dur=matchMedia('(prefers-reduced-motion:reduce)').matches?0:650;cancelAnimationFrame(anim);
+ const st=n=>{const u=dur?Math.min(1,(n-t0)/dur):1,e=u<.5?2*u*u:1-(-2*u+2)**2/2;V.cx=s.cx+(t.cx-s.cx)*e;V.cy=s.cy+(t.cy-s.cy)*e;V.z=Math.exp(Math.log(s.z)+(Math.log(t.z)-Math.log(s.z))*e);V.b=s.b+((t.b??s.b)-s.b)*e;V.p=s.p+(V.tp-s.p)*e;renderMap();if(u<1)anim=requestAnimationFrame(st)};anim=requestAnimationFrame(st)}
+const mapHome=()=>{const m=myCU(),core=m.filter(o=>['NL','DE','BE'].includes(o.cc));fit((core.length?core:m).map(o=>[o.mx,o.my]),V.tp>.2?.68:.85)};
+const tip=$('#tip');function showTip(e,h){tip.innerHTML=h;tip.style.display='block';tip.style.left=Math.min(innerWidth-tip.offsetWidth-8,e.clientX+14)+'px';tip.style.top=(e.clientY+14)+'px'}function hideTip(){tip.style.display='none'}
+function pick(X,Y){for(let i=hits.length-1;i>=0;i--){const h=hits[i];if(X>=h[0]&&X<=h[2]&&Y>=h[1]&&Y<=h[3])return h[4]}return null}
+V2.map=el=>{repF='';const mine=myCU();
+ el.innerHTML=`<h1>${NF.format(mine.filter(o=>!o.lost&&o.ls).length)} active customers${ADMIN?'':' of yours'} on the map</h1><p class="sub">Each column is one customer at the centre of its delivery postcode, not the exact farm. Drag to move, scroll or pinch to zoom, ⟲ ⟳ to turn. ${D.unmapped.filter(u=>inS(u[0])).length} customers have no usable address and are not shown.</p>
+ <div class="stage" style="margin-top:16px"><div class="mapwrap" id="mw"><canvas aria-label="Map of customers"></canvas>
+  <div class="ctrl"><div class="seg" id="lay">${LAYERS.map(l=>`<button data-k="${l.k}" class="${l===layer?'on':''}">${l.l}</button>`).join('')}</div><div class="seg" id="vw">${[['3d','3D'],['2d','2D'],['regions','Regions shaded']].map(v=>`<button data-v="${v[0]}" class="${mode===v[0]?'on':''}">${v[1]}</button>`).join('')}</div></div>
+  <div class="zoom"><button id="zi" aria-label="Zoom in">+</button><button id="zo" aria-label="Zoom out">−</button><button id="rl" aria-label="Rotate left">⟲</button><button id="rr" aria-label="Rotate right">⟳</button><button id="hm" aria-label="Reset view">⌂</button></div>
+  <div class="legend" id="lg"></div><div class="attr">Postcodes © GeoNames (CC BY 4.0) · borders © Natural Earth</div></div>
+  <aside class="side"><div class="tabs"><button data-t="rank">Regions</button><button data-t="cust">Customer</button><button data-t="route">Plan a visit day</button></div><div class="pane" id="pane"></div></aside></div>
+ <div class="panel card"><h2>Regions and gaps</h2><p class="sub">Active = bought in the last 6 months. Lost = bought before, nothing in the last 6 months.</p><div class="scroll"><table class="stack" id="regT"></table></div><h3 style="margin-top:20px">Postcode areas to win back</h3><p class="sub">Areas where lost customers outnumber active ones. Public counts of dairy farms per region (CBS, Destatis) would also show farms DairyTop has never sold to.</p><div class="scroll"><table class="stack" id="gapT"></table></div></div>`;
+ wrapEl=$('#mw');cv=wrapEl.querySelector('canvas');ctx=cv.getContext('2d');V.tp=mode==='3d'?.95:0;
+ const resize=()=>{const r=wrapEl.getBoundingClientRect();dpr=window.devicePixelRatio||1;W=r.width;H=r.height;cv.width=W*dpr;cv.height=H*dpr;renderMap()};new ResizeObserver(resize).observe(wrapEl);resize();
+ const ptrs=new Map();let pinch0=0,moved=0;
+ cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,[e.clientX,e.clientY]);moved=0;if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch0=Math.hypot(a[0]-b[0],a[1]-b[1])}});
+ cv.addEventListener('pointermove',e=>{const r=cv.getBoundingClientRect(),X=e.clientX-r.left,Y=e.clientY-r.top;
+  if(ptrs.has(e.pointerId)){const p=ptrs.get(e.pointerId),dx=e.clientX-p[0],dy=e.clientY-p[1];ptrs.set(e.pointerId,[e.clientX,e.clientY]);moved+=Math.abs(dx)+Math.abs(dy);
+   if(ptrs.size===2){const [a,b]=[...ptrs.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pinch0)V.z=Math.min(60000,Math.max(700,V.z*d/pinch0));pinch0=d}
+   else{const ry=dy/Math.max(.3,Math.cos(V.p)),cb=Math.cos(V.b),sb=Math.sin(V.b);V.cx-=(dx*cb+ry*sb)/V.z;V.cy-=(-dx*sb+ry*cb)/V.z}hideTip();drawMap();return}
+  const h=pick(X,Y);if(h){showTip(e,`<b>${esc(h.o.n)}</b><br><span class="m">${esc(h.o.pl)} · ${esc(D.vkOfCust[h.o.i])}</span><br>${layer.tip(h.o)}`);cv.style.cursor='pointer'}else{hideTip();cv.style.cursor=''}});
+ const up=e=>{ptrs.delete(e.pointerId);if(ptrs.size<2)pinch0=0;if(moved<6&&e.type==='pointerup'){const r=cv.getBoundingClientRect(),h=pick(e.clientX-r.left,e.clientY-r.top);if(h)select(h.o.i)}};
+ cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);cv.addEventListener('pointerleave',hideTip);
+ cv.addEventListener('wheel',e=>{e.preventDefault();const r=cv.getBoundingClientRect(),X=e.clientX-r.left,Y=e.clientY-r.top,b4=unproj(X,Y);V.z=Math.min(60000,Math.max(700,V.z*Math.exp(-e.deltaY*.0016)));const af=unproj(X,Y);V.cx+=b4[0]-af[0];V.cy+=b4[1]-af[1];drawMap()},{passive:false});
+ $('#zi').onclick=()=>fly({...V,z:Math.min(60000,V.z*1.6)});$('#zo').onclick=()=>fly({...V,z:Math.max(700,V.z/1.6)});$('#rl').onclick=()=>fly({...V,b:V.b-Math.PI/8});$('#rr').onclick=()=>fly({...V,b:V.b+Math.PI/8});$('#hm').onclick=()=>{V.b=0;mapHome()};
+ $('#lay').onclick=e=>{const b=e.target.closest('button');if(!b)return;layer=LAYERS.find(l=>l.k===b.dataset.k);$('#lay').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));legend();side();drawMap()};
+ $('#vw').onclick=e=>{const b=e.target.closest('button');if(!b)return;mode=b.dataset.v;V.tp=mode==='3d'?.95:0;$('#vw').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));fly({...V});legend()};
+ el.querySelector('.side .tabs').onclick=e=>{const b=e.target.closest('button');if(b){tab=b.dataset.t;side()}};
+ legend();side();regTables();V.p=0;mapHome()};
+function legend(){const n=myCU().filter(o=>layer.val(o)>0).length;$('#lg').innerHTML=`<b style="color:#fff"><span class="dot" style="background:rgb(${layer.col})"></span>${esc(layer.l)}</b> · ${n} customers<br>${mode==='regions'?'Regions shaded by their total; darker = more.':mode==='3d'?'Height grows with the square root of the value, so small customers stay visible.':'Circle size grows with the square root of the value.'}`}
+function select(i){sel=i;tab='cust';side();drawMap();const o=byI.get(i);if(o)fly({...V,cx:o.mx,cy:o.my,z:Math.max(V.z,14000)})}
+function side(){const p=$('#pane');if(!p)return;document.querySelectorAll('.side .tabs button').forEach(x=>x.classList.toggle('on',x.dataset.t===tab));
+ if(tab==='rank'){const rv=regionVals(),rows=D.regions.map((rg,k)=>[k,rv[k]]).filter(t=>t[1]>0).sort((a,b)=>b[1]-a[1]),mx=rows[0]?.[1]||1;
+  p.innerHTML=`<h3>${esc(layer.l)} by region</h3><p class="m">${eur(sum(rows,t=>t[1]))} in ${rows.length} regions. Click a region to zoom.</p>${ADMIN?`<label class="m" for="mRep" style="display:block;margin:10px 0 4px">Verkoper</label>${repSel('mRep',repF)}`:''}
+  <label class="m" for="mQ" style="display:block;margin:10px 0 4px">Find a customer</label><input id="mQ" list="mQs" placeholder="Name or place" autocomplete="off"><datalist id="mQs">${myCU().map(o=>`<option value="${esc(o.n)}">`).join('')}</datalist>
+  <div style="margin-top:12px">${rows.map(([k,v])=>`<div class="rb" data-r="${k}"><span class="nm">${esc(D.regions[k].n)} <span class="m">${D.regions[k].cc}</span></span><span>${eurS(v)}</span><span class="bar"><i style="width:${Math.max(2,v/mx*100)}%;background:rgb(${layer.col})"></i></span></div>`).join('')||'<p class="m">Nothing to show.</p>'}</div>`;
+  p.querySelectorAll('.rb').forEach(d=>d.onclick=()=>fit(D.regions[+d.dataset.r].rr.flat().map(q=>[q[2],q[3]]),.9));
+  if($('#mRep'))$('#mRep').onchange=e=>{repF=e.target.value;planRep=repF;side();legend();drawMap();regTables();mapHome()};
+  $('#mQ').onchange=e=>{const v=e.target.value.toLowerCase(),o=myCU().find(o=>o.n.toLowerCase()===v)||myCU().find(o=>(o.n+' '+o.pl).toLowerCase().includes(v));if(o)select(o.i)}}
+ if(tab==='cust'){const o=byI.get(sel);if(!o||!inS(o.i)){p.innerHTML='<p class="m">Click a column on the map.</p>';return}const co=collBy.get(o.i),cl=callsBy.get(o.i)||[],ub=unbBy.get(o.i)||[];
+  p.innerHTML=`<h3>${esc(o.n)}</h3><p class="m">${esc(o.pc)} ${esc(o.pl)} · ${o.cc} · ${esc(D.vkOfCust[o.i])}</p><div class="kv" style="margin:10px 0;color:#DFEAEE"><span>Revenue, 12 months</span><b>${eur(o.r12)}</b><span>Last order</span><b>${dl(o.ls)}</b><span>Overdue</span><b>${co&&co.over>0?eur2(co.over):'—'}</b><span>Reorders due</span><b>${cl.length||'—'}</b><span>Not invoiced</span><b>${ub.length?eur2(sum(ub,x=>x.val)):'—'}</b></div>
+  <div style="margin:0 0 10px">${contactBar(o.i,'visit')}</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" id="toB">Open briefing</button><button class="btn ghost sm" id="addR">${route.includes(o.i)?'Remove from route':'Add to visit day'}</button></div>`;
+  $('#toB').onclick=()=>{briefC=o.i;go('brief')};$('#addR').onclick=()=>{const k=route.indexOf(o.i);if(k>=0){route.splice(k,1);plan.delete(o.i)}else{plan.add(o.i);route.push(o.i)}side();drawMap()}}
+ if(tab==='route')routePane()}
+const hav=(a,b)=>{const R=6371,r=Math.PI/180,dla=(b.la-a.la)*r,dlo=(b.lo-a.lo)*r,s=Math.sin(dla/2)**2+Math.cos(a.la*r)*Math.cos(b.la*r)*Math.sin(dlo/2)**2;return 2*R*Math.asin(Math.sqrt(s))};
+function cands(rep){return CU.filter(o=>inS(o.i)&&D.vkOfCust[o.i]===rep).map(o=>{const why=[],c=collBy.get(o.i);if(callsBy.get(o.i))why.push(['Reorder due','#E5A93D']);if(c&&c.over30>0)why.push(['Overdue >30 days','#D95C5C']);else if(c&&c.over>0)why.push(['Overdue','#D95C5C']);if(unbBy.get(o.i))why.push(['Not invoiced','#E07B39']);if(o.lost&&o.py>50000)why.push(['Lost','#8A9AA1']);return{o,why,score:sum(callsBy.get(o.i)||[],x=>x.mrev)+(c?c.over:0)}}).filter(x=>x.why.length).sort((a,b)=>b.score-a.score)}
+function routePane(){const p=$('#pane'),reps=ADMIN?[...new Set(D.vkOfCust)].filter(v=>!CHANNELS.includes(v)).sort((a,b)=>cands(b).length-cands(a).length):[ME];if(!planRep||!reps.includes(planRep))planRep=reps[0];const cs=cands(planRep);
+ p.innerHTML=`<h3>Plan a visit day</h3><p class="m">Customers with a reason to visit. Tick up to 10 and plan the shortest round in that order.</p>${ADMIN?`<label class="m" for="pRep" style="display:block;margin:10px 0 4px">Verkoper</label><select id="pRep">${reps.map(r=>`<option${r===planRep?' selected':''}>${esc(r)}</option>`).join('')}</select>`:''}
+ <div style="margin:10px 0">${cs.slice(0,40).map(x=>`<label class="stop"><input type="checkbox" data-i="${x.o.i}"${plan.has(x.o.i)?' checked':''}><span>${esc(x.o.n)}<br><span class="m">${esc(x.o.pl)} · ${x.why.map(w=>`<span class="dot" style="background:${w[1]}"></span>${w[0]}`).join(' ')}</span></span><span class="m">${eurS(x.score)}</span></label>`).join('')||'<p class="m">No customers with an open reason.</p>'}</div>
+ <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" id="pGo">Plan route</button><button class="btn ghost sm" id="pClr">Clear</button></div><div id="pOut" style="margin-top:12px"></div>`;
+ if($('#pRep'))$('#pRep').onchange=e=>{planRep=e.target.value;plan.clear();route=[];drawMap();routePane()};
+ p.querySelectorAll('input[data-i]').forEach(c=>c.onchange=()=>{const i=+c.dataset.i;if(c.checked){if(plan.size>=10){c.checked=false;return}plan.add(i)}else plan.delete(i)});
+ $('#pClr').onclick=()=>{plan.clear();route=[];drawMap();routePane()};
+ $('#pGo').onclick=()=>{const st=[...plan].map(i=>byI.get(i)).filter(Boolean);if(st.length<2){$('#pOut').innerHTML='<p class="m">Tick at least two customers.</p>';return}
+  const len=o=>o.reduce((t,x,j)=>j?t+hav(o[j-1],x):0,0);let best=null;
+  for(let s=0;s<st.length;s++){const left=st.slice(),ord=[left.splice(s,1)[0]];while(left.length){const a=ord.at(-1);let k=0;left.forEach((b,j)=>{if(hav(a,b)<hav(a,left[k]))k=j});ord.push(left.splice(k,1)[0])}
+   let imp=true;while(imp){imp=false;for(let i=1;i<ord.length-1;i++)for(let j=i+1;j<ord.length;j++){const n=ord.slice(0,i).concat(ord.slice(i,j+1).reverse(),ord.slice(j+1));if(len(n)<len(ord)-.01){ord.splice(0,ord.length,...n);imp=true}}}
+   const L=len(ord);if(!best||L<best.L)best={ord,L}}
+  route=best.ord.map(o=>o.i);drawMap();fit(best.ord.map(o=>[o.mx,o.my]),.7);
+  $('#pOut').innerHTML=`<p style="font-weight:700;margin:0 0 6px">${best.ord.length} stops · about ${NF.format(Math.round(best.L))} km straight-line</p>${best.ord.map((o,j)=>`<div class="stop" style="grid-template-columns:24px minmax(0,1fr) auto"><span class="num">${j+1}</span><span>${esc(o.n)}<br><span class="m">${esc(o.pc)} ${esc(o.pl)}</span></span><span class="m">${j?NF.format(Math.round(hav(best.ord[j-1],o)))+' km':'start'}</span></div>`).join('')}<p style="margin:10px 0 0"><a href="https://www.google.com/maps/dir/${best.ord.map(o=>o.la+','+o.lo).join('/')}" target="_blank" rel="noopener" style="color:#40BCF3;font-weight:700">Open the route in Google Maps →</a></p><p class="m">Locations are postcode centres; Google Maps works out the real roads.</p>`}}
+function regTables(){const R=D.regions.map((rg,k)=>({k,n:rg.n,cc:rg.cc,act:0,lost:0,r12:0,py:0}));for(const o of myCU()){if(o.rg<0)continue;const x=R[o.rg];x.r12+=Math.max(0,o.r12);if(o.lost){x.lost++;x.py+=Math.max(0,o.py)}else if(o.ls)x.act++}
+ const rows=R.filter(x=>x.act||x.lost).sort((a,b)=>b.r12-a.r12);
+ $('#regT').innerHTML=`<thead><tr><th>Region</th><th>Country</th><th class="n">Active</th><th class="n">Revenue 12 m</th><th class="n">Per active customer</th><th class="n">Lost</th><th class="n">Lost bought (${YTD.p})</th></tr></thead><tbody>${rows.map(x=>`<tr><td><a class="cl" data-rg="${x.k}">${esc(x.n)}</a></td><td>${x.cc}</td><td class="n">${x.act}</td><td class="n">${eur(x.r12)}</td><td class="n">${x.act?eur(x.r12/x.act):'—'}</td><td class="n">${x.lost?`<span class="tag ${x.lost>x.act?'t-red':'t-g'}">${x.lost}</span>`:'—'}</td><td class="n">${x.py?eur(x.py):'—'}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="2">${rows.length} regions</td><td class="n">${sum(rows,x=>x.act)}</td><td class="n">${eur(sum(rows,x=>x.r12))}</td><td></td><td class="n">${sum(rows,x=>x.lost)}</td><td class="n">${eur(sum(rows,x=>x.py))}</td></tr></tfoot>`;
+ const A=new Map();for(const o of myCU()){if(!['NL','DE','BE'].includes(o.cc)||!o.pc)continue;const pc=o.pc.replace(/\D/g,'').slice(0,2);if(pc.length<2)continue;const k=o.cc+'-'+pc,x=A.get(k)||{k,cc:o.cc,pc,act:0,lost:0,py:0,pl:new Map(),pts:[]};if(o.lost){x.lost++;x.py+=Math.max(0,o.py)}else if(o.ls)x.act++;x.pl.set(o.pl,(x.pl.get(o.pl)||0)+1);x.pts.push([o.mx,o.my]);A.set(k,x)}
+ const gaps=[...A.values()].filter(x=>x.lost>=2&&x.lost>=x.act).sort((a,b)=>b.py-a.py).slice(0,25);
+ $('#gapT').innerHTML=`<thead><tr><th>Postcode area</th><th>Places</th><th class="n">Active</th><th class="n">Lost</th><th class="n">Lost bought (${YTD.p})</th></tr></thead><tbody>${gaps.map(x=>`<tr><td><a class="cl" data-gap="${x.k}">${x.cc} ${x.pc}…</a></td><td>${esc([...x.pl].sort((a,b)=>b[1]-a[1]).slice(0,3).map(t=>t[0]).join(', '))}</td><td class="n">${x.act}</td><td class="n">${x.lost}</td><td class="n">${eur(x.py)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No areas where lost customers outnumber active ones.</td></tr>'}</tbody>`;
+ document.querySelectorAll('#regT [data-rg]').forEach(a=>a.onclick=()=>{fit(D.regions[+a.dataset.rg].rr.flat().map(q=>[q[2],q[3]]),.9);$('.stage').scrollIntoView({behavior:'smooth',block:'nearest'})});
+ document.querySelectorAll('#gapT [data-gap]').forEach(a=>a.onclick=()=>{layer=LAYERS[4];document.querySelectorAll('#lay button').forEach(x=>x.classList.toggle('on',x.dataset.k==='lost'));legend();side();fit(A.get(a.dataset.gap).pts,.6);$('.stage').scrollIntoView({behavior:'smooth',block:'nearest'})})}
+
+/* ================= reminders ================= */
+let remC=null,remL='de';const dd=iso=>iso?iso.split('-').reverse().join('.'):'',eu=c=>'€ '+NF2.format(c/100);
+const T={de:{h:'Sehr geehrte Damen und Herren,',i:'bei der Durchsicht unserer Buchhaltung haben wir festgestellt, dass die folgenden Rechnungen noch offen sind:',line:x=>`- Rechnung ${x.no} vom ${dd(x.d)}, fällig am ${dd(x.due)}: ${eu(x.incl)}`,t:'Offener Betrag gesamt',a:'Wir bitten Sie, den offenen Betrag innerhalb der nächsten 7 Tage zu überweisen. Sollte sich Ihre Zahlung mit diesem Schreiben überschnitten haben, betrachten Sie diese Erinnerung bitte als gegenstandslos.',e:'Mit freundlichen Grüßen\nDairyTop'},
+ nl:{h:'Geachte heer/mevrouw,',i:'Volgens onze administratie staan de volgende facturen nog open:',line:x=>`- Factuur ${x.no} van ${dd(x.d)}, vervaldatum ${dd(x.due)}: ${eu(x.incl)}`,t:'Totaal openstaand',a:'Wij verzoeken u het openstaande bedrag binnen 7 dagen over te maken. Heeft u inmiddels betaald, dan kunt u deze herinnering als niet verzonden beschouwen.',e:'Met vriendelijke groet,\nDairyTop'},
+ en:{h:'Dear Sir or Madam,',i:'According to our records, the following invoices are still open:',line:x=>`- Invoice ${x.no} of ${dd(x.d)}, due ${dd(x.due)}: ${eu(x.incl)}`,t:'Total outstanding',a:'Please transfer the outstanding amount within the next 7 days. If your payment has crossed with this message, please disregard this reminder.',e:'Kind regards,\nDairyTop'}};
+function openRem(c){remC=collBy.get(c);if(!remC)return;remL=langOf(c);remPaint();$('#dlg').showModal()}
+function remText(co,l){const t=T[l],L=co.inv.filter(x=>x.incl>0&&x.late>0);return `${t.h}\n\n${t.i}\n\n${L.map(t.line).join('\n')}\n\n${t.t}: ${eu(sum(L,x=>x.incl))}\n\n${t.a}\n\n${t.e}`}
+const MKT={Germany:'DE',Netherlands:'NL',Belgium:'BE',Austria:'AT',Switzerland:'CH',Luxembourg:'LU'};
+const langOf=c=>{const cc=byI.get(c)?.cc||MKT[D.market[c]]||'';return['DE','AT','CH','LU'].includes(cc)?'de':['NL','BE'].includes(cc)?'nl':'en'};
+const SUBJ={reminder:{de:'Zahlungserinnerung DairyTop',nl:'Betalingsherinnering DairyTop',en:'Payment reminder DairyTop'},reorder:{de:'Ihre nächste Bestellung bei DairyTop',nl:'Uw volgende bestelling bij DairyTop',en:'Your next order with DairyTop'},visit:{de:'Besuch von DairyTop',nl:'Bezoek van DairyTop',en:'Visit from DairyTop'}};
+function msgText(c,kind,l){const me=ME||'DairyTop';
+ if(kind==='reminder'){const co=collBy.get(c);return co?remText(co,l).replace(/\nDairyTop$/,`\n${me}\nDairyTop`):''}
+ if(kind==='reorder'){const ps=[...new Set((callsBy.get(c)||[]).map(x=>x.p))].join(', ')||'DairyTop';return{de:`Guten Tag,\n\nwir haben bemerkt, dass Ihre letzte Bestellung von ${ps} schon eine Weile zurückliegt. Dürfen wir eine neue Lieferung für Sie einplanen? Antworten Sie einfach auf diese E-Mail oder rufen Sie uns an.\n\nMit freundlichen Grüßen\n${me}\nDairyTop`,nl:`Goedendag,\n\nWe zien dat uw laatste bestelling van ${ps} alweer even geleden is. Zullen we een nieuwe levering voor u inplannen? Antwoord gerust op deze e-mail of bel ons.\n\nMet vriendelijke groet,\n${me}\nDairyTop`,en:`Hello,\n\nWe noticed it has been a while since your last order of ${ps}. Shall we plan a new delivery for you? Simply reply to this email or give us a call.\n\nKind regards,\n${me}\nDairyTop`}[l]}
+ return{de:`Guten Tag,\n\nich würde Sie gerne in den kommenden Tagen auf Ihrem Betrieb besuchen. Passt Ihnen ein Termin in der nächsten Woche? Nennen Sie mir gerne einen Tag und eine Uhrzeit.\n\nMit freundlichen Grüßen\n${me}\nDairyTop`,nl:`Goedendag,\n\nIk kom graag de komende dagen bij u op het bedrijf langs. Schikt een afspraak volgende week? Laat gerust weten welke dag en tijd u uitkomt.\n\nMet vriendelijke groet,\n${me}\nDairyTop`,en:`Hello,\n\nI would like to visit your farm in the coming days. Would a visit next week suit you? Let me know which day and time works best.\n\nKind regards,\n${me}\nDairyTop`}[l]}
+const IC={tel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h4l2 5-3 2a11 11 0 005 5l2-3 5 2v4a2 2 0 01-2 2A17 17 0 013 6a2 2 0 012-2z"/></svg>',mail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18v14H3zM3 6l9 7 9-7"/></svg>'};
+const mailLinks=(to,subj,body)=>{const q=encodeURIComponent;return `<a href="mailto:${q(to)}?subject=${q(subj)}&body=${q(body)}">${IC.mail}Email</a><a href="https://outlook.office.com/mail/deeplink/compose?to=${q(to)}&subject=${q(subj)}&body=${q(body)}" target="_blank" rel="noopener">${IC.mail}Outlook</a>`};
+function contactBar(c,kind){const ct=D.contacts[c];if(!ct)return'<span class="sub" style="font-size:13px">No phone or email in Microfas</span>';const [ph,em]=ct,l=langOf(c);
+ return `<span class="ca">${ph.slice(0,2).map((p,i)=>`<a href="tel:${p}" title="${p}">${IC.tel}${ph.length>1?(i?'Call 2':'Call'):'Call'}</a>`).join('')}${em.length?mailLinks(em.join(';'),SUBJ[kind][l],msgText(c,kind,l)):''}</span>`}
+function contactText(c){const ct=D.contacts[c];return ct?[...ct[0],...ct[1]].map(esc).join(' · '):''}
+function remPaint(){const L=remC.inv.filter(x=>x.incl>0&&x.late>0),em=D.contacts[remC.c]?.[1]||[];$('#dlgT').textContent='Reminder · '+D.names[remC.c];$('#dlgX').value=msgText(remC.c,'reminder',remL);$('#dlgSend').innerHTML=em.length?mailLinks(em.join(';'),SUBJ.reminder[remL],$('#dlgX').value):'<span class="sub" style="font-size:13px">No email in Microfas</span>';$('#dlgN').textContent=`${L.length} overdue invoice(s), incl. VAT, open in Microfas on ${dl(D.meta.lt)}.`;$('#langSeg').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.l===remL))}
+$('#langSeg').onclick=e=>{const b=e.target.closest('button');if(b){remL=b.dataset.l;remPaint()}};
+$('#dlgX').oninput=()=>{const em=D.contacts[remC.c]?.[1]||[];if(em.length)$('#dlgSend').innerHTML=mailLinks(em.join(';'),SUBJ.reminder[remL],$('#dlgX').value)};$('#dlgClose').onclick=()=>$('#dlg').close();
+$('#dlgC').onclick=async()=>{const x=$('#dlgX');try{await navigator.clipboard.writeText(x.value);$('#dlgC').textContent='Copied'}catch{x.select();$('#dlgC').textContent='Press Ctrl+C'}setTimeout(()=>$('#dlgC').textContent='Copy text',1600)};
+
+/* ================= start ================= */
+/* ================= install as an app ================= */
+{let ev=null;const box=$('#install'),standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone,snooze=LS.get('dfInstallSnooze',0)>Date.now(),ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
+ const show=t=>{if(standalone||snooze)return;if(t)$('#instTxt').textContent=t;box.style.display='flex'};
+ addEventListener('beforeinstallprompt',e=>{e.preventDefault();ev=e;show()});
+ if(ios&&!standalone){$('#instGo').style.display='none';show('On iPhone or iPad: tap Share, then "Add to Home Screen".')}
+ $('#instGo').onclick=async()=>{if(!ev)return;ev.prompt();await ev.userChoice.catch(()=>{});ev=null;box.style.display='none'};
+ $('#instNo').onclick=()=>{LS.set('dfInstallSnooze',Date.now()+7*864e5);box.style.display='none'};
+ addEventListener('appinstalled',()=>{box.style.display='none'});
+ if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{})}
+window.DF={C,get D(){return D},setUser,go,get S(){return S},CU,byI,cpBy,prodTot};
+if(LIVE){(LS.get('dfToken','')?loadLive():Promise.resolve(who())).catch(e=>{const x=$('#err');x.style.display='block';x.textContent='Could not reach DairyFlow: '+e.message;who()})}
+else fetch('data/data.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}).then(d=>{prepare(d);const u=LS.get('dfUser',null);if(u&&D.people.some(p=>p.n===u)){ME=u;ADMIN=ADMINS.includes(u);S=ADMIN?null:new Set(D.vkOfCust.map((v,i)=>v===u?i:-1).filter(i=>i>=0));const h=location.hash.slice(1);mod=MODS.some(m=>m.id===h)?h:'home'}render()})
+ .catch(e=>{const x=$('#err');x.style.display='block';x.textContent='Could not load the data: '+e.message});
+}
+</script>
+</body>
+</html>
