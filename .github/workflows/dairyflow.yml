@@ -1,8 +1,7 @@
 name: DairyFlow data and site
 
 on:
-  schedule:
-    - cron: '30 3 * * *'      # every day 09:00 India time (03:30 UTC); the Microfas export lands around 06:30 IST
+  # No GitHub schedule: GitHub's cron often started hours late. A daily scheduled task starts this run with workflow_dispatch.
   workflow_dispatch:
   push:
     branches: [main]
