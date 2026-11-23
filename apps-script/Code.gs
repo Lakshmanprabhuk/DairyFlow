@@ -242,12 +242,11 @@ function restrict_(d, name) {
   d.vkOfCust = d.vkOfCust.map((v, i) => own(i) ? v : '');
   const keep = o => { const r = {}; Object.keys(o).forEach(k => { if (own(k)) r[k] = o[k]; }); return r; };
   d.contacts = keep(d.contacts); d.lateness = keep(d.lateness); d.vatRatio = keep(d.vatRatio);
-  d.calls = d.calls.filter(x => own(x.c));
+  d.quiet = (d.quiet || []).filter(x => own(x.c));
   d.collections = d.collections.filter(x => own(x.c));
   d.orders = d.orders.filter(x => own(x.c));
   d.contracts = d.contracts.filter(x => own(x[0]));
   d.cm = d.cm.filter(x => own(x[0]));
-  d.cadence = d.cadence.filter(x => own(x[0]));
   d.cp = d.cp.filter(x => own(x[0]));      // product averages and 'others also buy' come precomputed (prodTot, pen)
   d.margin = []; d.costs = []; d.dayGroup = []; d.monthGroup = [];
   d.verkopers = [name];

@@ -200,7 +200,7 @@ def build(archive, portal):
                          over=sum(x['incl'] for x in pos if (x['late'] or 0) > 0), over30=sum(x['incl'] for x in pos if (x['late'] or 0) > 30),
                          oldest=max([x['late'] or 0 for x in pos] + [0]), late=round(b[0] / b[1], 1) if b and b[1] else None))
     # customer x product (daily data), weekly and monthly per group, monthly per customer
-    cp, wk, mg, cm = defaultdict(lambda: [0, 0, 0, 0]), defaultdict(lambda: [0, 0]), defaultdict(lambda: [0, 0]), defaultdict(int)
+    cp, wk, mg, cm = defaultdict(lambda: [0, 0, 0, 0, '']), defaultdict(lambda: [0, 0]), defaultdict(lambda: [0, 0]), defaultdict(int)
     pk, pg = defaultdict(int), defaultdict(lambda: defaultdict(int))
     for i in range(n):
         c, p, g, m = F['c'][i], F['p'][i], gidx[F['g'][i]], F['m'][i]
@@ -209,7 +209,25 @@ def build(archive, portal):
         if F['d'][i]:
             x = cp[(c, p)]; x[0] += F['r'][i]; x[1] += F['k'][i]; x[2] += F['q'][i]; x[3] += 1
             y, mm = ym(m); t = (D.date(y, mm, F['d'][i]) - D.date(1970, 1, 1)).days
+            if F['r'][i] > 0: x[4] = max(x[4], D.date(y, mm, F['d'][i]).isoformat())   # last day this product was ordered
             x = wk[(t, g)]; x[0] += F['k'][i]; x[1] += F['r'][i]
+
+    # last order per customer (daily data since 7 April 2026): date, value and products of that day
+    CHG = re.compile(r'kosten|diversen|korting|toeslag|vracht|freight|statiegeld|emballage', re.I)
+    byday = defaultdict(lambda: defaultdict(lambda: [0, set()]))
+    for i in range(n):
+        if not F['d'][i]: continue
+        y, mm = ym(F['m'][i]); day = D.date(y, mm, F['d'][i]).isoformat()
+        x = byday[F['c'][i]][day]; x[0] += F['r'][i]
+        if F['r'][i] > 0 and not CHG.search(X['products'][F['p'][i]][0] or ''): x[1].add(F['p'][i])
+    quiet = []
+    for c, days in byday.items():
+        od = [d for d, v in days.items() if v[0] > 0 and v[1]]          # order days: positive value, at least one real product
+        if not od: continue
+        last = max(od); v = days[last]
+        quiet.append(dict(c=c, last=last, rev=v[0], items=sorted(X['products'][p][0] for p in v[1]), orders=len(od),
+                          since=(lt - D.date.fromisoformat(last)).days))
+    quiet.sort(key=lambda q: -q['since'])
 
     # product totals (all customers) and, per main product group, how many customers buy each product
     ptot = defaultdict(lambda: [0, 0, 0]); cust_g = defaultdict(lambda: [0] * 6); buys = defaultdict(set)
@@ -229,10 +247,10 @@ def build(archive, portal):
         customers=rows, unmapped=unmapped, names=names, vkOfCust=[c[2] for c in cust], verkopers=X['verkopers'],
         terms=[c[3] for c in cust], market=[c[1] for c in cust], contacts=contacts,
         regions=regions, countries=countries, groups=GROUPS,
-        calls=[dict(c=r[0], p=X['products'][r[1]][0], od=r[2], gap=r[3], last=r[4], since=r[5], late=r[6], mrev=r[7]) for r in X['reorder']],
+        quiet=quiet, calls=[], cadence=[],   # calls/cadence kept empty so an older API script still runs
         collections=coll, orders=orders,
         products=[[p[0], 1 if pk[i] > 0 else 0, max(pg[i], key=pg[i].get) if pg[i] else 5] for i, p in enumerate(X['products'])],
-        cp=[[c, p, *v] for (c, p), v in cp.items()], cadence=X['cadence'],
+        cp=[[c, p, *v] for (c, p), v in cp.items()],
         dayGroup=[[t, g, *v] for (t, g), v in sorted(wk.items())], monthGroup=[[m, g, *v] for (m, g), v in sorted(mg.items())],
         cm=[[c, m, v] for (c, m), v in cm.items() if v],
         vatRatio={c: round(v[1] / v[0], 4) for c, v in gr.items() if v[0] > 0},
@@ -247,7 +265,8 @@ def check(d, X, rev12):
     tests = {
         'customers on the map + not on the map = all customers': len(d['customers']) + len(d['unmapped']) == len(X['customers']),
         '12-month revenue per customer = facts': all(c[10] == rev12[c[0]] for c in d['customers']),
-        'call list = reorder signals': sum(c['mrev'] for c in d['calls']) == sum(r[7] for r in X['reorder']),
+        'last order value = that day in daily facts': all(q['rev'] == sum(F['r'][i] for i in daily if F['c'][i] == q['c'] and '%s-%02d' % (d['meta']['months'][F['m'][i]], F['d'][i]) == q['last']) for q in d['quiet'][:40]),
+        'days without an order >= 0': all(q['since'] >= 0 for q in d['quiet']),
         'open items incl. VAT = receivables': sum(x['incl'] for c in d['collections'] for x in c['inv']) == sum(a[11] for a in X['ar']),
         'open items excl. VAT = cohort balance': sum(x['ex'] for c in d['collections'] for x in c['inv']) == X['recon']['cohortBalanceCents'],
         'collection totals = their invoices': all(c['open'] == sum(x['incl'] for x in c['inv'] if x['incl'] > 0) and c['cred'] == sum(x['incl'] for x in c['inv'] if x['incl'] < 0) for c in d['collections']),
