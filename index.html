@@ -200,7 +200,7 @@ let CU=[],byI=new Map(),callsBy=new Map(),collBy=new Map(),unbBy=new Map(),cpBy=
 const merc=(lon,lat)=>{const s=Math.sin(lat*Math.PI/180);return[(lon+180)/360,.5-Math.log((1+s)/(1-s))/(4*Math.PI)]};
 function prepare(d){D=d;{const [a,b]=(d.meta.ytd||'/').split('/');if(a&&b){const y=a.slice(0,4),m1=MN[+a.slice(5)-1],m2=MN[+b.slice(5)-1];YTD={l:`${m1}–${m2} ${y}`,p:`${m1}–${m2} ${y-1}`}}}
  for(const r of d.customers){const o={};d.cols.forEach((c,i)=>o[c]=r[i]);[o.mx,o.my]=merc(o.lo,o.la);o.lost=!!o.ls&&o.ls<d.meta.lostCut;CU.push(o);byI.set(o.i,o)}
- for(const q of d.quiet)callsBy.set(q.c,q);   // last order per customer
+ for(const q of d.quiet||[])callsBy.set(q.c,q);   // older saved copies have no 'quiet'; they are replaced by the download   // last order per customer
  for(const c of d.collections)collBy.set(c.c,c);
  for(const o of d.orders)if(o.stage==='deliveredNotInvoiced'){if(!unbBy.has(o.c))unbBy.set(o.c,[]);unbBy.get(o.c).push(o)}
  for(const r of d.cp){const [c,p,rev,kg,q,n,last]=r;if(!cpBy.has(c))cpBy.set(c,[]);cpBy.get(c).push({p,rev,kg,q,n,last});if(!d.prodTot){const t=prodTot.get(p)||{rev:0,kg:0,q:0};t.rev+=rev;t.kg+=kg;t.q+=q;prodTot.set(p,t)}}
@@ -215,7 +215,7 @@ function prepare(d){D=d;{const [a,b]=(d.meta.ytd||'/').split('/');if(a&&b){const
 
 /* ================= calculations (pure; also used by the audit) ================= */
 const C={
- calls:(min=QUIET)=>D.quiet.filter(q=>inS(q.c)&&q.since>=min),
+ calls:(min=QUIET)=>(D.quiet||[]).filter(q=>inS(q.c)&&q.since>=min),
  collect:()=>D.collections.filter(c=>inS(c.c)),
  orders:st=>D.orders.filter(o=>inS(o.c)&&(!st||o.stage===st)),
  contracts(){const lt=tOf(D.meta.lt);return D.contracts.filter(r=>inS(r[0])).map(r=>{const [c,g,qty,from,to,del,el,unc]=r,pct=qty>0?del/qty*100:null,odd=qty>0&&del>qty*5,left=tOf(to)-lt;
