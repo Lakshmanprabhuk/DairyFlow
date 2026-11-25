@@ -48,7 +48,7 @@ function doPost(e) {
       case 'data':        return dataFor_(req.token, req.have);
       case 'logout':      return out(logout_(req.token));
       case 'upload':      return out(upload_(req.key, req.data));
-      default:            return out({ ok: false, error: 'Unknown action' });
+      default:            return crmRoute_(req);          // CRM actions; anything else still ends in 'Unknown action'
     }
   } catch (err) {
     console.error(err && err.stack || err);
@@ -222,6 +222,7 @@ function upload_(key, text) {
   let f = dataFile_();
   if (f) f.setContent(text); else { f = DriveApp.createFile(CFG.DATA_FILE, text, 'application/json'); PropertiesService.getScriptProperties().setProperty('DATA_FILE_ID', f.getId()); }
   cacheText_(text);
+  crmInvalidate_();
   seedUsersFromData_();
   return { ok: true, through: d.meta.lt, bytes: text.length };
 }
@@ -250,4 +251,276 @@ function restrict_(d, name) {
   d.cp = d.cp.filter(x => own(x[0]));      // product averages and 'others also buy' come precomputed (prodTot, pen)
   d.margin = []; d.costs = []; d.dayGroup = []; d.monthGroup = [];
   d.verkopers = [name];
+  crmRestrict_(d, own);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CRM (added). Visit notes, follow-up tasks and prospects.
+   Lives in three tabs of this same sheet: Activities, Tasks, Prospects.
+   Run setupCrm() once after pasting this file, then deploy a new version.
+   • A note, task or prospect belongs to a customer by its Microfas id (data.ref), or to a prospect ('p:<id>').
+   • Who writes: the verkoper who owns the customer. Customers with several verkopers, or with no verkoper
+     (Kantoor, Webshop, Unassigned), are written by admins (Johan, Leon) only.
+   • Who reads: the owner and the admins. A note marked Private is read by its author only.
+   • Everything is decided here on the server; the app only hides what it may not offer.
+   ══════════════════════════════════════════════════════════════════ */
+const CRM = {
+  SHEETS: {
+    Activities: ['Id', 'Ref', 'Type', 'Date', 'Outcome', 'Summary', 'Private', 'By', 'Created', 'Updated', 'Deleted'],
+    Tasks: ['Id', 'Ref', 'Text', 'Due', 'Status', 'Owner', 'Private', 'By', 'Created', 'Updated', 'Done', 'Deleted'],
+    Prospects: ['Id', 'Name', 'Country', 'Postcode', 'Place', 'Phone', 'Email', 'Status', 'Owner', 'Lat', 'Lon', 'Notes', 'Linked', 'Created', 'Updated', 'Deleted'],
+  },
+  TYPES: ['visit', 'call', 'email', 'note'],
+  OUTCOMES: ['', 'spoke', 'noanswer', 'order', 'quote', 'followup', 'notinterested', 'other'],
+  TASK_STATUS: ['open', 'done'],
+  PROSPECT_STATUS: ['new', 'contacted', 'interested', 'quote', 'won', 'lost'],
+  COUNTRIES: { NL: 'Netherlands', DE: 'Germany', BE: 'Belgium', AT: 'Austria', CH: 'Switzerland', DK: 'Denmark', FR: 'France', LU: 'Luxembourg',
+    PL: 'Poland', CZ: 'Czechia', HU: 'Hungary', ES: 'Spain', GB: 'United Kingdom', IE: 'Ireland', SE: 'Sweden', SK: 'Slovakia', RO: 'Romania' },
+  MAX: { summary: 2000, text: 300, name: 120, notes: 2000, place: 80, postcode: 16, phone: 40, email: 120 },
+  WRITES_PER_MINUTE: 60,
+  OWN_PIECE: 30000,
+};
+const CRM_ID = /^[A-Za-z0-9_-]{8,40}$/, CRM_DATE = /^\d{4}-\d{2}-\d{2}$/, CRM_EMAIL = /^[^@\s;,]+@[^@\s;,]+\.[A-Za-z]{2,}$/;
+
+/** Creates the three tabs (safe to run again). Text format on every column keeps dates and ids exactly as written. */
+function setupCrm() {
+  const ss = SpreadsheetApp.getActive();
+  Object.keys(CRM.SHEETS).forEach(name => {
+    const cols = CRM.SHEETS[name];
+    const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+    if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, cols.length).setNumberFormat('@'); sh.appendRow(cols); sh.setFrozenRows(1); sh.getRange(1, 1, 1, cols.length).setFontWeight('bold'); }
+    sh.getRange(1, 1, sh.getMaxRows(), cols.length).setNumberFormat('@');
+  });
+  console.log('CRM tabs ready. Keep this sheet shared with as few people as possible: it holds visit notes, and private notes are readable by anyone who can open it.');
+}
+function crmSheet_(name) {
+  let sh = sheet_(name);
+  if (!sh) { setupCrm(); sh = sheet_(name); }
+  return sh;
+}
+function s_(v) { return v instanceof Date ? v.toISOString() : String(v == null ? '' : v); }
+function crmRows_(name) {
+  const sh = crmSheet_(name), v = sh.getDataRange().getValues(), h = CRM.SHEETS[name], rows = [];
+  for (let i = 1; i < v.length; i++) {
+    if (!s_(v[i][0])) continue;
+    const o = { _row: i + 1 }; h.forEach((k, j) => o[k] = s_(v[i][j])); rows.push(o);
+  }
+  return rows;
+}
+function crmPut_(name, row, o) {            // writes (or appends) one record, text format first so nothing is auto-converted
+  const sh = crmSheet_(name), cols = CRM.SHEETS[name], r = row || sh.getLastRow() + 1, rg = sh.getRange(r, 1, 1, cols.length);
+  rg.setNumberFormat('@'); rg.setValues([cols.map(k => o[k] == null ? '' : s_(o[k]))]);
+}
+function crmNow_() { return new Date().toISOString(); }
+
+/* ---- validation ---- */
+function crmStr_(v, max) { return String(v == null ? '' : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, max); }
+function crmDate_(v, fromDays, toDays) {
+  v = String(v || '').trim();
+  if (!CRM_DATE.test(v)) return null;
+  const t = Date.parse(v + 'T00:00:00Z'); if (isNaN(t)) return null;
+  const d = (t - Date.now()) / 864e5; return d >= fromDays && d <= toDays ? v : null;
+}
+
+/* ---- who owns which customer: {microfasId: verkoper}, cached in pieces next to the data ---- */
+function crmPutPieces_(prefix, text) {
+  const c = CacheService.getScriptCache(), n = Math.ceil(text.length / CRM.OWN_PIECE), o = {};
+  o[prefix + ':n'] = String(n);
+  for (let i = 0; i < n; i++) o[prefix + ':' + i] = text.slice(i * CRM.OWN_PIECE, (i + 1) * CRM.OWN_PIECE);
+  try { c.putAll(o, CACHE_SECONDS); } catch (e) { c.remove(prefix + ':n'); }
+}
+function crmGetPieces_(prefix) {
+  const c = CacheService.getScriptCache(), n = Number(c.get(prefix + ':n') || 0);
+  if (!n) return null;
+  const keys = []; for (let i = 0; i < n; i++) keys.push(prefix + ':' + i);
+  const got = c.getAll(keys);
+  return keys.every(k => got[k] != null) ? keys.map(k => got[k]).join('') : null;
+}
+function crmInvalidate_() { try { CacheService.getScriptCache().remove('crm:own:n'); } catch (e) {} }
+function crmOwners_() {
+  const t = crmGetPieces_('crm:own'); if (t) return JSON.parse(t);
+  const d = readData_(); if (!d || !d.ref) return null;           // data from before the CRM pipeline step: not ready
+  const m = {}; d.ref.forEach((r, i) => { if (r) m[r] = d.vkOfCust[i] || ''; });
+  crmPutPieces_('crm:own', JSON.stringify(m)); return m;
+}
+
+/* ---- permissions ---- */
+function crmAdmin_(u) { return u.Role === 'admin'; }
+function crmChannel_(owner) { return !owner || CFG.CHANNELS.indexOf(owner) >= 0; }
+/** ctx = { owners, prospects: {id: row} } */
+function crmCtx_(withProspects) {
+  const owners = crmOwners_(); if (!owners) return null;
+  const prospects = {}; if (withProspects) crmRows_('Prospects').forEach(p => prospects[p.Id] = p);
+  return { owners, prospects };
+}
+function crmCanSee_(u, ref, ctx) {
+  if (String(ref).indexOf('p:') === 0) { const p = ctx.prospects[String(ref).slice(2)]; return !!p && !p.Deleted && (crmAdmin_(u) || p.Owner === u.Name); }
+  const owner = ctx.owners[ref]; if (owner === undefined) return false;
+  return crmChannel_(owner) ? crmAdmin_(u) : (crmAdmin_(u) || owner === u.Name);
+}
+function crmCanWrite_(u, ref, ctx) {
+  if (String(ref).indexOf('p:') === 0) { const p = ctx.prospects[String(ref).slice(2)]; return !!p && !p.Deleted && !p.Linked && p.Owner === u.Name; }
+  const owner = ctx.owners[ref]; if (owner === undefined) return false;
+  return crmChannel_(owner) ? crmAdmin_(u) : owner === u.Name;
+}
+function crmCanRead_(u, rec, ctx) { return crmCanSee_(u, rec.Ref, ctx) && (!rec.Private || rec.By === u.Name); }
+
+/* ---- shapes sent to the app ---- */
+const crmAct_ = r => ({ id: r.Id, ref: r.Ref, type: r.Type, date: r.Date, outcome: r.Outcome, summary: r.Summary, priv: r.Private ? 1 : 0, by: r.By, created: r.Created, updated: r.Updated });
+const crmTask_ = r => ({ id: r.Id, ref: r.Ref, text: r.Text, due: r.Due, status: r.Status, owner: r.Owner, priv: r.Private ? 1 : 0, by: r.By, created: r.Created, updated: r.Updated, done: r.Done });
+const crmPros_ = r => ({ id: r.Id, name: r.Name, cc: r.Country, pc: r.Postcode, place: r.Place, phone: r.Phone, email: r.Email, status: r.Status, owner: r.Owner,
+  la: r.Lat === '' ? null : Number(r.Lat), lo: r.Lon === '' ? null : Number(r.Lon), notes: r.Notes, linked: r.Linked, created: r.Created, updated: r.Updated });
+
+/* ---- routing ---- */
+function crmRoute_(req) {
+  switch (req.a) {
+    case 'crmList':   return crmList_(req);
+    case 'crmSave':   return crmWrite_(req, crmSave_);
+    case 'crmDelete': return crmWrite_(req, crmDelete_);
+    case 'crmLink':   return crmWrite_(req, crmLink_);
+  }
+  return out({ ok: false, error: 'Unknown action' });
+}
+function crmThrottled_(u) {
+  const c = CacheService.getScriptCache(), k = 'crm:w:' + u.Name + ':' + Math.floor(Date.now() / 60000), n = Number(c.get(k) || 0) + 1;
+  c.put(k, String(n), 120); return n > CRM.WRITES_PER_MINUTE;
+}
+function crmWrite_(req, fn) {
+  const u = who_(req.token); if (!u) return out({ ok: false, error: 'Please sign in again.', signin: true });
+  if (crmThrottled_(u)) return out({ ok: false, error: 'Too many changes at once. Wait a minute.' });
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const ctx = crmCtx_(true); if (!ctx) return out({ ok: false, error: 'CRM is not ready: it starts after the next data update.', notReady: true });
+    return out(fn(u, req, ctx));
+  } finally { lock.releaseLock(); }
+}
+
+/* ---- read ---- */
+/** Everything this user may read. With since, only what changed after it (deleted ones come back as { id, del: 1 }). */
+function crmList_(req) {
+  const u = who_(req.token); if (!u) return out({ ok: false, error: 'Please sign in again.', signin: true });
+  const ctx = crmCtx_(true); if (!ctx) return out({ ok: false, error: 'CRM is not ready: it starts after the next data update.', notReady: true });
+  const since = String(req.since || ''), now = new Date(Date.now() - 5000).toISOString();   // 5 s overlap: the app merges by id
+  const pick = (rows, shape) => {
+    const res = [];
+    rows.forEach(r => {
+      if (since && !(r.Updated > since)) return;
+      if (!crmCanRead_(u, r, ctx)) return;
+      if (r.Deleted) { if (since) res.push({ id: r.Id, del: 1 }); return; }
+      res.push(shape(r));
+    });
+    return res;
+  };
+  const pros = [];
+  Object.keys(ctx.prospects).forEach(id => {
+    const p = ctx.prospects[id];
+    if (since && !(p.Updated > since)) return;
+    if (!(crmAdmin_(u) || p.Owner === u.Name)) return;
+    if (p.Deleted) { if (since) pros.push({ id: p.Id, del: 1 }); return; }
+    pros.push(crmPros_(p));
+  });
+  return out({ ok: true, now, full: !since, activities: pick(crmRows_('Activities'), crmAct_), tasks: pick(crmRows_('Tasks'), crmTask_), prospects: pros });
+}
+
+/* ---- write ---- */
+function crmSave_(u, req, ctx) {
+  const rec = req.rec || {}, id = String(rec.id || '');
+  if (!CRM_ID.test(id)) return { ok: false, error: 'Bad id.' };
+  if (req.kind === 'activity') return crmSaveActivity_(u, rec, id, ctx);
+  if (req.kind === 'task') return crmSaveTask_(u, rec, id, ctx);
+  if (req.kind === 'prospect') return crmSaveProspect_(u, rec, id, ctx);
+  return { ok: false, error: 'Unknown kind.' };
+}
+function crmSaveActivity_(u, rec, id, ctx) {
+  const rows = crmRows_('Activities'), old = rows.find(r => r.Id === id);
+  const type = String(rec.type || ''), outcome = String(rec.outcome || ''), summary = crmStr_(rec.summary, CRM.MAX.summary), date = crmDate_(rec.date, -3650, 1);
+  if (CRM.TYPES.indexOf(type) < 0) return { ok: false, error: 'Choose what kind of contact it was.' };
+  if (CRM.OUTCOMES.indexOf(outcome) < 0) return { ok: false, error: 'Unknown outcome.' };
+  if (!date) return { ok: false, error: 'Check the date.' };
+  if (!summary) return { ok: false, error: 'Write a short note.' };
+  const now = crmNow_();
+  if (old) {                                                          // an edit (or a repeated send of the same note)
+    if (old.Deleted) return { ok: false, error: 'This note was deleted.' };
+    if (old.By !== u.Name || !crmCanWrite_(u, old.Ref, ctx)) return { ok: false, error: 'Not allowed.' };
+    Object.assign(old, { Type: type, Date: date, Outcome: outcome, Summary: summary, Updated: now });   // ref and privacy never change
+    crmPut_('Activities', old._row, old); return { ok: true, rec: crmAct_(old) };
+  }
+  const ref = String(rec.ref || '');
+  if (!crmCanWrite_(u, ref, ctx)) return { ok: false, error: 'You can not add notes to this customer.' };
+  const o = { Id: id, Ref: ref, Type: type, Date: date, Outcome: outcome, Summary: summary, Private: rec.priv ? 'Y' : '', By: u.Name, Created: now, Updated: now, Deleted: '' };
+  crmPut_('Activities', 0, o); return { ok: true, rec: crmAct_(o) };
+}
+function crmSaveTask_(u, rec, id, ctx) {
+  const rows = crmRows_('Tasks'), old = rows.find(r => r.Id === id);
+  const text = crmStr_(rec.text, CRM.MAX.text), due = crmDate_(rec.due, -365, 1100), status = String(rec.status || 'open');
+  if (!text) return { ok: false, error: 'Write what needs doing.' };
+  if (!due) return { ok: false, error: 'Check the due date.' };
+  if (CRM.TASK_STATUS.indexOf(status) < 0) return { ok: false, error: 'Unknown status.' };
+  const now = crmNow_();
+  if (old) {
+    if (old.Deleted) return { ok: false, error: 'This task was deleted.' };
+    if ((old.By !== u.Name && old.Owner !== u.Name) || !crmCanWrite_(u, old.Ref, ctx)) return { ok: false, error: 'Not allowed.' };
+    Object.assign(old, { Text: text, Due: due, Status: status, Updated: now, Done: status === 'done' ? (old.Done || now) : '' });
+    crmPut_('Tasks', old._row, old); return { ok: true, rec: crmTask_(old) };
+  }
+  const ref = String(rec.ref || '');
+  if (!crmCanWrite_(u, ref, ctx)) return { ok: false, error: 'You can not add tasks to this customer.' };
+  const o = { Id: id, Ref: ref, Text: text, Due: due, Status: status, Owner: u.Name, Private: rec.priv ? 'Y' : '', By: u.Name, Created: now, Updated: now, Done: status === 'done' ? now : '', Deleted: '' };
+  crmPut_('Tasks', 0, o); return { ok: true, rec: crmTask_(o) };
+}
+function crmGeocode_(cc, postcode, place) {
+  try {
+    const r = Maps.newGeocoder().setRegion(String(cc).toLowerCase()).geocode([postcode, place, CRM.COUNTRIES[cc]].filter(String).join(', '));
+    if (!r || r.status !== 'OK' || !r.results.length) return null;
+    const p = r.results[0].geometry.location;
+    if (p.lat < 35 || p.lat > 61 || p.lng < -11 || p.lng > 30) return null;       // outside the area DairyTop sells in: ignore
+    return [Math.round(p.lat * 1e4) / 1e4, Math.round(p.lng * 1e4) / 1e4];
+  } catch (e) { return null; }
+}
+function crmSaveProspect_(u, rec, id, ctx) {
+  const name = crmStr_(rec.name, CRM.MAX.name), cc = String(rec.cc || '').toUpperCase(), status = String(rec.status || 'new');
+  const pc = crmStr_(rec.pc, CRM.MAX.postcode), place = crmStr_(rec.place, CRM.MAX.place), phone = crmStr_(rec.phone, CRM.MAX.phone), email = crmStr_(rec.email, CRM.MAX.email).replace(/\s/g, ''), notes = crmStr_(rec.notes, CRM.MAX.notes);
+  if (!name) return { ok: false, error: 'Enter the name of the farm.' };
+  if (!CRM.COUNTRIES[cc]) return { ok: false, error: 'Choose a country.' };
+  if (CRM.PROSPECT_STATUS.indexOf(status) < 0) return { ok: false, error: 'Unknown status.' };
+  if (phone && phone.replace(/\D/g, '').length < 6) return { ok: false, error: 'Check the phone number.' };
+  if (email && !CRM_EMAIL.test(email)) return { ok: false, error: 'Check the email address.' };
+  const old = ctx.prospects[id], now = crmNow_();
+  if (old) {
+    if (old.Deleted) return { ok: false, error: 'This prospect was deleted.' };
+    if (old.Owner !== u.Name || old.Linked) return { ok: false, error: 'Not allowed.' };
+    const moved = old.Country !== cc || old.Postcode !== pc || old.Place !== place || old.Lat === '';
+    const g = moved && (pc || place) ? crmGeocode_(cc, pc, place) : null;
+    Object.assign(old, { Name: name, Country: cc, Postcode: pc, Place: place, Phone: phone, Email: email, Status: status, Notes: notes, Updated: now });
+    if (moved) { old.Lat = g ? g[0] : ''; old.Lon = g ? g[1] : ''; }
+    crmPut_('Prospects', old._row, old); return { ok: true, rec: crmPros_(old) };
+  }
+  const g = pc || place ? crmGeocode_(cc, pc, place) : null;
+  const o = { Id: id, Name: name, Country: cc, Postcode: pc, Place: place, Phone: phone, Email: email, Status: status, Owner: u.Name, Lat: g ? g[0] : '', Lon: g ? g[1] : '', Notes: notes, Linked: '', Created: now, Updated: now, Deleted: '' };
+  crmPut_('Prospects', 0, o); return { ok: true, rec: crmPros_(o) };
+}
+function crmDelete_(u, req, ctx) {
+  const id = String(req.id || ''), kind = req.kind, name = kind === 'activity' ? 'Activities' : kind === 'task' ? 'Tasks' : kind === 'prospect' ? 'Prospects' : '';
+  if (!name || !CRM_ID.test(id)) return { ok: false, error: 'Bad request.' };
+  const r = crmRows_(name).find(x => x.Id === id); if (!r) return { ok: true };            // already gone
+  const mine = kind === 'prospect' ? r.Owner === u.Name : (r.By === u.Name || (kind === 'task' && r.Owner === u.Name));
+  if (!mine) return { ok: false, error: 'Not allowed.' };
+  r.Deleted = 'Y'; r.Updated = crmNow_(); crmPut_(name, r._row, r); return { ok: true };
+}
+/** Admin: a prospect became a Microfas customer. Its notes and tasks move to that customer. */
+function crmLink_(u, req, ctx) {
+  if (!crmAdmin_(u)) return { ok: false, error: 'Only Johan or Leon can link a prospect.' };
+  const id = String(req.id || ''), ref = String(req.ref || ''), p = ctx.prospects[id];
+  if (!p || p.Deleted || p.Linked) return { ok: false, error: 'Prospect not found or already linked.' };
+  if (ctx.owners[ref] === undefined) return { ok: false, error: 'Customer not found.' };
+  const now = crmNow_(), from = 'p:' + id;
+  ['Activities', 'Tasks'].forEach(n => crmRows_(n).forEach(r => { if (r.Ref === from) { r.Ref = ref; r.Updated = now; crmPut_(n, r._row, r); } }));
+  p.Linked = ref; p.Status = 'won'; p.Updated = now; crmPut_('Prospects', p._row, p);
+  return { ok: true };
+}
+
+/** Called from restrict_: a verkoper's copy of the data carries Microfas ids of their own customers only, and no rep lists. */
+function crmRestrict_(d, own) {
+  if (d.ref) d.ref = d.ref.map((r, i) => own(i) ? r : '');
+  d.reps = {};
 }

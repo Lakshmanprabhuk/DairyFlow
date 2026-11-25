@@ -64,6 +64,24 @@ def email(raw):
     s = nul(raw).replace(' ', '')
     return s if EMAIL.match(s) else ''
 
+MULTI_REP = 'Multiple representatives'   # label the generator gives a customer that has more than one verkoper
+
+def crm_refs(keys, vk_of_cust, links, rel):
+    """CRM support, added without touching any existing figure.
+    ref:  position in the customer list -> Microfas customer id (stable; the position can shift between runs)
+    reps: only for customers with several verkopers, position -> the names of those verkopers (as text).
+    Never raises on odd source rows: a missing name is simply left out."""
+    ref = [str(k) for k in keys]
+    roles = defaultdict(set)
+    for r in links:
+        roles[str(r.get('id_rel'))].add(str(r.get('id_rel__vert')))
+    reps = {}
+    for ci, k in enumerate(ref):
+        if vk_of_cust[ci] != MULTI_REP: continue
+        names = sorted({fixtxt(nul(rel[v].get('naam_volledig'))) for v in roles.get(k, ()) if v in rel and nul(rel[v].get('naam_volledig'))})
+        if names: reps[ci] = names
+    return ref, reps
+
 def read_tables(archive, names):
     out = {}
     with zipfile.ZipFile(archive) as z:
@@ -165,6 +183,7 @@ def build(archive, portal):
         r = rel.get(vid)
         if r and nul(r['naam_volledig']) and email(r.get('email1')): staff[nul(r['naam_volledig'])] = email(r.get('email1'))
     staff = {k: v for k, v in staff.items() if k in set(X['verkopers'])}
+    crm_ref, crm_reps = crm_refs(keys, [c[2] for c in cust], T['rel_k_rel__vert'], rel)
     # orders and their value (same rule as the dashboard)
     ov, ok, items, priced = defaultdict(int), defaultdict(lambda: [0, 0]), defaultdict(list), set()
     for l in X['openLines']:
@@ -256,7 +275,8 @@ def build(archive, portal):
         vatRatio={c: round(v[1] / v[0], 4) for c, v in gr.items() if v[0] > 0},
         lateness={c: round(v[0] / v[1], 1) for c, v in late.items() if v[1] > 0},
         staff=staff, prodTot={p: v for p, v in ptot.items()}, pen={g: {'peers': x['peers'], 'p': dict(x['p'])} for g, x in pen.items()},
-        margin=X['margin'], costs=X['costs'], contracts=X['contracts'])
+        margin=X['margin'], costs=X['costs'], contracts=X['contracts'],
+        ref=crm_ref, reps=crm_reps)   # CRM: Microfas id per customer position, rep names of multi-rep customers
     check(data, X, rev12)
     return data
 
@@ -275,6 +295,8 @@ def check(d, X, rev12):
         'monthly group totals = all facts': (sum(r[2] for r in d['monthGroup']), sum(r[3] for r in d['monthGroup'])) == (sum(F['k']), sum(F['r'])),
         'customer-month revenue = all facts': sum(r[2] for r in d['cm']) == sum(F['r']),
         'region index valid': all(-1 <= c[9] < len(d['regions']) for c in d['customers']),
+        'CRM: one unique Microfas id per customer': len(d['ref']) == len(d['names']) and len(set(d['ref'])) == len(d['ref']) and all(d['ref']),
+        'CRM: rep names only on multi-rep customers': all(d['vkOfCust'][int(i)] == MULTI_REP and n for i, n in d['reps'].items()),
         'product totals = customer x product': [sum(v[k] for v in d['prodTot'].values()) for k in range(3)] == [sum(r[k] for r in d['cp']) for k in (2, 3, 4)],
     }
     bad = [k for k, v in tests.items() if not v]

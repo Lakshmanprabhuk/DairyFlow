@@ -178,11 +178,12 @@ const api=(body)=>fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;c
 /* ================= people, access, modules ================= */
 const ADMINS=['Johan Hoogendoorn','Leon'];
 const CHANNELS=['Kantoor','Webshop','Multiple representatives','Unassigned'];
-const ICON={map:'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',calls:'M5 4h4l2 5-3 2a11 11 0 005 5l2-3 5 2v4a2 2 0 01-2 2A17 17 0 013 6a2 2 0 012-2z',brief:'M7 3h10v4H7zM5 5h2M17 5h2v16H5V5M9 12h6M9 16h4',collect:'M3 7h18v12H3zM3 11h18M7 15h3',cash:'M4 19V9M10 19V5M16 19v-7M22 19H2',unb:'M4 4h12l4 4v12H4zM8 12h8M8 16h5',price:'M20 12l-8 8-9-9V3h8zM7.5 7.5h.01',buy:'M3 3h2l2 12h11l3-8H6M9 20a1 1 0 100-.01M18 20a1 1 0 100-.01',con:'M6 3h9l4 4v14H6zM9 10h7M9 14h7M9 18h4'};
+const ICON={map:'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',calls:'M5 4h4l2 5-3 2a11 11 0 005 5l2-3 5 2v4a2 2 0 01-2 2A17 17 0 013 6a2 2 0 012-2z',brief:'M7 3h10v4H7zM5 5h2M17 5h2v16H5V5M9 12h6M9 16h4',collect:'M3 7h18v12H3zM3 11h18M7 15h3',cash:'M4 19V9M10 19V5M16 19v-7M22 19H2',unb:'M4 4h12l4 4v12H4zM8 12h8M8 16h5',price:'M20 12l-8 8-9-9V3h8zM7.5 7.5h.01',buy:'M3 3h2l2 12h11l3-8H6M9 20a1 1 0 100-.01M18 20a1 1 0 100-.01',con:'M6 3h9l4 4v14H6zM9 10h7M9 14h7M9 18h4',crm:'M4 5h16v11H9l-5 4zM8 9h8M8 12h5'};
 const MODS=[
  {id:'map',t:'Map & visit day',d:'Where your customers are, regions and gaps, and a route for a day of visits.',all:true},
  {id:'calls',t:'Call list',d:'Customers who have not ordered for a while: when they last ordered, for how much, and how long it has been.',all:true},
  {id:'brief',t:'Visit briefing',d:'A one-page view of a farm before you visit: what they buy, prices, open items.',all:true},
+ {id:'crm',t:'CRM',d:'Log visits and calls, set follow-ups and keep track of prospects.',all:true},
  {id:'collect',t:'Collections',d:'Who owes what, who to chase first, and a ready reminder text.',all:true},
  {id:'unb',t:'Not invoiced',d:'Delivered but not invoiced, and orders stuck in Microfas.',all:true},
  {id:'con',t:'Contracts',d:'Delivered against contracted quantity, and contracts ending soon.',all:true},
@@ -322,7 +323,7 @@ function bar(active){return `<div class="bar"><div class="in"><img src="${LOGO}"
 function bindBar(){$('#toHome').onclick=()=>go('home');$('#meBtn').onclick=()=>{if(LIVE){api({a:'logout',token:LS.get('dfToken','')}).catch(()=>{});LS.set('dfToken',null);IDB.del('data');PEOPLE=null;D=null}ME=null;LS.set('dfUser',null);render()};root.querySelectorAll('.mods [data-m]').forEach(b=>b.onclick=()=>go(b.dataset.m));const nv=root.querySelector('.mods'),on=nv&&nv.querySelector('.on');if(on&&nv.scrollWidth>nv.clientWidth)nv.scrollLeft=on.offsetLeft-(nv.clientWidth-on.offsetWidth)/2}
 function home(){const h=new Date().getHours(),hi=h<12?'Good morning':h<18?'Good afternoon':'Good evening',first=ME.split(' ')[0];
  const F={map:()=>`${NF.format(CU.filter(o=>inS(o.i)&&!o.lost&&o.ls).length)} active customers`,calls:()=>`${C.calls().length} quiet ${QUIET}+ days`,brief:()=>`${NF.format(CU.filter(o=>inS(o.i)).length)} farms`,
-  collect:()=>`${eurS(sum(C.collect(),c=>c.over))} overdue`,unb:()=>`${eurS(sum(C.orders('deliveredNotInvoiced'),o=>o.val))} to bill`,con:()=>`${C.contracts().length} contracts`,
+  crm:()=>crmTile(),collect:()=>`${eurS(sum(C.collect(),c=>c.over))} overdue`,unb:()=>`${eurS(sum(C.orders('deliveredNotInvoiced'),o=>o.val))} to bill`,con:()=>`${C.contracts().length} contracts`,
   cash:()=>{const r=C.cash();return `${eurS(sum(r.wk,w=>w.inv+w.ord))} in 8 weeks`},price:()=>`${C.price().alerts.length} low-margin sales`,buy:()=>{const b=C.buy();return `${ton(sum(b.out[0].fc,x=>x.mid))} milk powder`}};
  root.innerHTML=bar('')+`<div class="wrap"><h1>${hi}, ${esc(first)}</h1><p class="sub">${ADMIN?'You see all customers and every module.':`You see your ${S.size} customers. Choose what to work on.`} Microfas data through ${dl(D.meta.lt)}.</p>
  <div class="tiles">${MODS.map(m=>{const ok=can(m.id);return `<button class="tile card" data-m="${m.id}" ${ok?'':'disabled style="opacity:.55;cursor:default"'}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${ICON[m.id]}"/></svg><h3>${m.t}</h3><span class="sub" style="font-size:14.5px">${m.d}</span>${ok?`<span class="fig">${F[m.id]()}</span>`:'<span class="lock">For Johan and Leon</span>'}</button>`}).join('')}</div></div><footer>DairyFlow for DairyTop · Powered by <b>Knitworks</b></footer>`;
@@ -555,6 +556,235 @@ function remPaint(){const L=remC.inv.filter(x=>x.incl>0&&x.late>0),em=D.contacts
 $('#langSeg').onclick=e=>{const b=e.target.closest('button');if(b){remL=b.dataset.l;remPaint()}};
 $('#dlgX').oninput=()=>{const em=D.contacts[remC.c]?.[1]||[];if(em.length)$('#dlgSend').innerHTML=mailLinks(em.join(';'),SUBJ.reminder[remL],$('#dlgX').value)};$('#dlgClose').onclick=()=>$('#dlg').close();
 $('#dlgC').onclick=async()=>{const x=$('#dlgX');try{await navigator.clipboard.writeText(x.value);$('#dlgC').textContent='Copied'}catch{x.select();$('#dlgC').textContent='Press Ctrl+C'}setTimeout(()=>$('#dlgC').textContent='Copy text',1600)};
+
+/* ================= CRM (added) =================
+   Visit notes, follow-up tasks and prospects. The server decides who may read and write (see apps-script/Code.gs);
+   this part only keeps a copy on the device, queues changes while offline and shows them.
+   Customers are addressed by their Microfas id (D.ref[position]); prospects as 'p:<id>'. */
+const CRMT={visit:'Visit',call:'Call',email:'Email',note:'Note'};
+const CRMO={'':'No outcome',spoke:'Spoke to them',noanswer:'No answer',order:'Order placed',quote:'Quote requested',followup:'Follow-up needed',notinterested:'Not interested',other:'Other'};
+const CRMS={new:'New',contacted:'Contacted',interested:'Interested',quote:'Quote sent',won:'Won',lost:'Lost'};
+const CRMCC={NL:'Netherlands',DE:'Germany',BE:'Belgium',AT:'Austria',CH:'Switzerland',DK:'Denmark',FR:'France',LU:'Luxembourg',PL:'Poland',CZ:'Czechia',HU:'Hungary',ES:'Spain',GB:'United Kingdom',IE:'Ireland',SE:'Sweden',SK:'Slovakia',RO:'Romania'};
+const CRM={forD:null,state:'',err:'',ci:new Map(),A:new Map(),T:new Map(),P:new Map(),out:[],since:'',fullAt:0,busy:false,tok:'',me:null,last:0,again:false,tw:'',tab:'today',aF:{type:'',who:'',q:'',all:false}};
+const todayISO=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const crmId=()=>{try{return crypto.randomUUID()}catch{return 'n'+Date.now().toString(36)+Math.random().toString(36).slice(2,12)}};
+const ownerOf=ci=>D.vkOfCust[ci]||'',isChan=o=>!o||CHANNELS.includes(o);
+const canWriteC=ci=>ci!=null&&(isChan(ownerOf(ci))?ADMIN:ownerOf(ci)===ME);
+const crmPros=ref=>String(ref).startsWith('p:')?CRM.P.get(String(ref).slice(2)):null;
+const canWriteRef=ref=>{const p=crmPros(ref);return String(ref).startsWith('p:')?!!p&&!p.linked&&p.owner===ME:canWriteC(CRM.ci.get(ref))};
+const refName=ref=>{const p=crmPros(ref);if(String(ref).startsWith('p:'))return p?p.name:'Prospect';const i=CRM.ci.get(ref);return i==null?'Customer':D.names[i]||'Customer'};
+const refLink=ref=>{const i=CRM.ci.get(ref);return String(ref).startsWith('p:')?`<a class="cl" data-p="${esc(String(ref).slice(2))}">${esc(refName(ref))}</a> <span class="tag t-sky">Prospect</span>`:i!=null&&byI.get(i)?cn(i):esc(refName(ref))};
+const cA=()=>[...CRM.A.values()],cT=()=>[...CRM.T.values()],cP=()=>[...CRM.P.values()];
+const actsOf=ref=>cA().filter(a=>a.ref===ref).sort((a,b)=>b.date.localeCompare(a.date)||b.created.localeCompare(a.created));
+const tasksOf=ref=>cT().filter(t=>t.ref===ref&&t.status==='open').sort((a,b)=>a.due.localeCompare(b.due));
+const crmReady=()=>CRM.state==='ready'||CRM.state==='offline';
+const crmDue=()=>{const t=todayISO();return cT().filter(x=>x.status==='open'&&x.owner===ME&&x.due<=t).length};
+const dueTag=due=>{const t=todayISO();return due<t?`<span class="tag t-red">${NF.format(tOf(t)-tOf(due))} d overdue</span>`:due===t?'<span class="tag t-amb">Today</span>':`<span class="tag t-g">${dl(due)}</span>`};
+const crmSty=()=>{if(document.getElementById('crmCss'))return;const s=document.createElement('style');s.id='crmCss';s.textContent=`.crm-f{display:grid;gap:12px;margin-top:10px}.crm-f label{display:grid;gap:4px;font-weight:600;font-size:14px}
+.crm-f input,.crm-f select,.crm-f textarea{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:9px 10px;font:16px 'DM Sans',sans-serif;min-height:42px;width:100%;box-sizing:border-box}
+.crm-f textarea{min-height:110px;resize:vertical}.crm-f .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}.crm-f .chk{display:flex;gap:8px;align-items:center;font-weight:500}.crm-f .chk input{width:auto;min-height:0}
+.crm-f .hint{font-size:13px;color:var(--mute);margin:0}.crm-act{display:flex;gap:6px;flex-wrap:wrap}.crm-tl{display:grid;gap:10px;margin-top:10px}.crm-tl .it{border-left:3px solid var(--sky);padding:2px 0 2px 12px}
+.crm-tl .it .h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px;color:var(--mute)}.crm-tl .it p{margin:3px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}.crm-tl .it.p{border-color:var(--amber)}
+.crm-sum td{white-space:pre-wrap;overflow-wrap:anywhere;max-width:46ch}.crm-pane{margin-top:14px;border-top:1px solid #2A4350;padding-top:12px}.crm-pane .it{font-size:13.5px;margin:6px 0;color:#DFEAEE}@media(max-width:520px){.crm-f .two{grid-template-columns:1fr}}`;document.head.appendChild(s)};
+
+/* ---- talking to the server (or, in test mode, to this browser) ---- */
+const LC={get:()=>LS.get('dfCrmLocal',{A:[],T:[],P:[]}),set:v=>LS.set('dfCrmLocal',v)};
+function localCrm(b){const s=LC.get(),now=new Date().toISOString(),mineRec=r=>!r.priv||r.by===ME,res=x=>Promise.resolve(x);
+ if(b.a==='crmList')return res({ok:true,full:true,now,activities:s.A.filter(mineRec),tasks:s.T.filter(mineRec),prospects:s.P.filter(p=>ADMIN||p.owner===ME)});
+ const arr=b.kind==='activity'?s.A:b.kind==='task'?s.T:b.kind==='prospect'?s.P:null;
+ if(b.a==='crmSave'&&arr){const r=b.rec,i=arr.findIndex(x=>x.id===r.id);if(i<0)arr.push({...r,by:ME,owner:b.kind==='prospect'||b.kind==='task'?ME:undefined,created:now,updated:now,la:null,lo:null});else{const o=arr[i];arr[i]={...o,...r,ref:o.ref,priv:o.priv,by:o.by,updated:now}}LC.set(s);return res({ok:true,rec:arr[i<0?arr.length-1:i]})}
+ if(b.a==='crmDelete'&&arr){const i=arr.findIndex(x=>x.id===b.id);if(i>=0)arr.splice(i,1);LC.set(s);return res({ok:true})}
+ if(b.a==='crmLink'){const p=s.P.find(x=>x.id===b.id);if(!p||!ADMIN)return res({ok:false,error:'Only Johan or Leon can link a prospect.'});[...s.A,...s.T].forEach(r=>{if(r.ref==='p:'+b.id)r.ref=b.ref});p.linked=b.ref;p.status='won';LC.set(s);return res({ok:true})}
+ return res({ok:false,error:'Unknown action'})}
+const crmCall=b=>LIVE?api({...b,token:LS.get('dfToken','')}):localCrm(b);
+
+/* ---- local copy, queue, sync ---- */
+const crmPersist=()=>IDB.set('crm',{tok:CRM.tok,me:ME,A:cA(),T:cT(),P:cP(),since:CRM.since,fullAt:CRM.fullAt,out:CRM.out});
+function crmReset(){CRM.ci=new Map();CRM.A=new Map();CRM.T=new Map();CRM.P=new Map();CRM.out=[];CRM.since='';CRM.fullAt=0;CRM.err='';CRM.state=''}
+function crmMerge(r){const set=(m,x)=>{if(x.del)m.delete(x.id);else m.set(x.id,x)};if(r.full){CRM.A.clear();CRM.T.clear();CRM.P.clear()}
+ (r.activities||[]).forEach(x=>set(CRM.A,x));(r.tasks||[]).forEach(x=>set(CRM.T,x));(r.prospects||[]).forEach(x=>set(CRM.P,x));
+ if(r.full)CRM.out.forEach(crmApply)}                                  // changes still waiting to be sent stay visible
+function crmApply(it){const now=new Date().toISOString();
+ if(it.op==='save'){const m=it.kind==='activity'?CRM.A:it.kind==='task'?CRM.T:CRM.P,o=m.get(it.rec.id)||{};
+  m.set(it.rec.id,{...o,...it.rec,by:o.by||ME,owner:o.owner||ME,created:o.created||now,updated:now,pending:1,ref:o.ref||it.rec.ref,priv:o.priv??it.rec.priv??0,la:o.la??null,lo:o.lo??null})}
+ else if(it.op==='delete')(it.kind==='activity'?CRM.A:it.kind==='task'?CRM.T:CRM.P).delete(it.id);
+ else if(it.op==='link'){const p=CRM.P.get(it.id);if(p){p.linked=it.ref;p.status='won'}[...CRM.A.values(),...CRM.T.values()].forEach(r=>{if(r.ref==='p:'+it.id)r.ref=it.ref})}}
+function crmRefresh(){if(mod==='home')return render();if(document.querySelector('dialog[open]'))return;const f=document.activeElement;if(f&&/^(INPUT|TEXTAREA|SELECT)$/.test(f.tagName)&&f.closest('#mc'))return;
+ if(mod==='crm')V2.crm($('#mc'));else if(mod==='brief')crmBriefPaint();else if(mod==='map'){drawMap();if(tab==='cust')side()}}
+async function crmBoot0(){if(CRM.forD===D&&CRM.me===ME){if(crmReady()&&Date.now()-CRM.last>12e4)crmSync().catch(()=>{});return}   // already running: just refresh when it is stale
+ CRM.forD=D;CRM.me=ME;crmReset();
+ if(!D||!D.ref){CRM.state='notready';return}
+ D.ref.forEach((r,i)=>{if(r)CRM.ci.set(r,i)});CRM.state='loading';CRM.tok=LIVE?LS.get('dfToken',''):'local';
+ const c=await IDB.get('crm');if(CRM.forD!==D)return;
+ if(c&&c.tok===CRM.tok&&c.me===ME){(c.A||[]).forEach(x=>CRM.A.set(x.id,x));(c.T||[]).forEach(x=>CRM.T.set(x.id,x));(c.P||[]).forEach(x=>CRM.P.set(x.id,x));CRM.since=c.since||'';CRM.fullAt=c.fullAt||0;CRM.out=c.out||[];CRM.state='ready';crmRefresh()}
+ await crmSync()}
+const crmBoot=()=>crmBoot0().catch(e=>console.error('CRM',e));
+async function crmSync(){if(CRM.busy){CRM.again=true;return}if(CRM.forD!==D||!D.ref)return;CRM.busy=true;CRM.last=Date.now();
+ try{while(CRM.out.length){const it=CRM.out[0],body=it.op==='save'?{a:'crmSave',kind:it.kind,rec:it.rec}:it.op==='delete'?{a:'crmDelete',kind:it.kind,id:it.id}:{a:'crmLink',id:it.id,ref:it.ref};
+   let r;try{r=await crmCall(body)}catch{CRM.state='offline';crmPersist();return}
+   if(r.signin){CRM.state='offline';crmPersist();return}
+   CRM.out.shift();
+   if(r.ok){if(r.rec){const m=it.kind==='activity'?CRM.A:it.kind==='task'?CRM.T:CRM.P;m.set(r.rec.id,r.rec)}}
+   else{toast('Not saved: '+(r.error||'the server refused it'));CRM.since='';CRM.fullAt=0}}
+  const full=!CRM.since||Date.now()-CRM.fullAt>12*36e5;let r;
+  try{r=await crmCall({a:'crmList',since:full?'':CRM.since})}catch{CRM.state=CRM.state==='ready'?'offline':CRM.state||'offline';crmPersist();crmRefresh();return}
+  if(!r.ok){if(r.signin){CRM.state='offline'}else if(r.notReady){CRM.state='notready'}else{CRM.state='error';CRM.err=r.error||''}crmRefresh();return}
+  crmMerge(r);CRM.since=r.now;if(r.full)CRM.fullAt=Date.now();CRM.state='ready';crmPersist();crmRefresh()}
+ finally{CRM.busy=false;if(CRM.again){CRM.again=false;crmSync().catch(e=>console.error('CRM',e))}}}
+function crmSend(it){crmApply(it);CRM.out.push(it);crmPersist();crmRefresh();return crmSync()}
+const crmSave=(kind,rec)=>crmSend({op:'save',kind,rec});
+const crmDel=(kind,id)=>crmSend({op:'delete',kind,id});
+
+/* a note logged without a connection is sent as soon as the phone is online again or the app is opened again */
+addEventListener('online',()=>{if(CRM.forD===D)crmSync().catch(()=>{})});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&CRM.forD===D&&crmReady())crmSync().catch(()=>{})});
+
+/* ---- dialogs ---- */
+function crmDlg(html,mount){crmSty();let d=document.getElementById('crmDlg');if(!d){d=document.createElement('dialog');d.id='crmDlg';d.addEventListener('close',()=>setTimeout(crmRefresh,0));document.body.appendChild(d)}
+ d.innerHTML=`<div class="dlg">${html}</div>`;d.showModal();d.querySelectorAll('[data-x]').forEach(x=>x.onclick=()=>d.close());mount(d);return d}
+const crmErr=(d,t)=>{const e=d.querySelector('.note[role=alert]');if(e)e.textContent=t};
+/** Customers and prospects the user may write to: [{ref,label}] */
+function crmTargets(){const o=[];D.ref.forEach((r,i)=>{if(r&&D.names[i]&&canWriteC(i)){const p=byI.get(i);o.push({ref:r,label:D.names[i]+(p&&p.pl?' · '+p.pl:'')})}});
+ cP().filter(p=>!p.linked&&p.owner===ME).forEach(p=>o.push({ref:'p:'+p.id,label:p.name+' (prospect)'}));return o.sort((a,b)=>a.label.localeCompare(b.label))}
+const tgtField=(ref,list)=>ref?`<label>Customer<input value="${esc(refName(ref))}" readonly></label>`:`<label>Customer or prospect<input id="fT" list="fTs" placeholder="Start typing a name" autocomplete="off" required><datalist id="fTs">${list.map(t=>`<option value="${esc(t.label)}">`).join('')}</datalist></label>`;
+const tgtPick=(d,ref,list)=>{if(ref)return ref;const v=d.querySelector('#fT').value.trim().toLowerCase(),t=list.find(x=>x.label.toLowerCase()===v)||list.filter(x=>x.label.toLowerCase().includes(v));return Array.isArray(t)?(t.length===1?t[0].ref:''):t.ref};
+const opts=(o,v)=>Object.entries(o).map(([k,l])=>`<option value="${esc(k)}"${k===v?' selected':''}>${esc(l)}</option>`).join('');
+function crmLogDlg(ref,edit){const list=ref||edit?[]:crmTargets(),a=edit?CRM.A.get(edit):null;if(edit&&!a)return;ref=a?a.ref:ref;
+ if(!ref&&!list.length)return toast('There is no customer you can add a note to.');
+ crmDlg(`<h2>${a?'Edit contact':'Log a contact'}</h2><form class="crm-f" id="fF">${tgtField(ref,list)}
+  <div class="two"><label>Kind<select id="fK">${opts(CRMT,a?a.type:'visit')}</select></label><label>Date<input type="date" id="fD" value="${esc(a?a.date:todayISO())}" max="${todayISO()}" required></label></div>
+  <label>Outcome<select id="fO">${opts(CRMO,a?a.outcome:'')}</select></label>
+  <label>What was said or agreed<textarea id="fS" maxlength="2000" required>${esc(a?a.summary:'')}</textarea></label>
+  ${a?`<p class="hint">${a.priv?'This note is private: only you can read it.':'Johan and Leon can read this note.'}</p>`:`<label class="chk"><input type="checkbox" id="fP"> Private: only I can read it (Johan and Leon can not)</label>
+  <div class="two"><label>Follow-up on<input type="date" id="fFd" min="${todayISO()}"></label><label>Follow-up task<input id="fFt" maxlength="300" placeholder="Call back about the price"></label></div>`}
+  <p class="note" role="alert" style="margin:0"></p><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Save</button></div></form>`,d=>{
+  d.querySelector('#fF').onsubmit=e=>{e.preventDefault();const r=tgtPick(d,ref,list);if(!r)return crmErr(d,'Choose a customer or prospect from the list.');
+   const sum=d.querySelector('#fS').value.trim();if(!sum)return crmErr(d,'Write a short note.');
+   crmSave('activity',{id:a?a.id:crmId(),ref:r,type:d.querySelector('#fK').value,date:d.querySelector('#fD').value,outcome:d.querySelector('#fO').value,summary:sum,priv:a?a.priv:d.querySelector('#fP').checked?1:0});
+   const fd=!a&&d.querySelector('#fFd').value;if(fd)crmSave('task',{id:crmId(),ref:r,text:d.querySelector('#fFt').value.trim()||'Follow up',due:fd,status:'open',priv:d.querySelector('#fP').checked?1:0});
+   d.close();toast('Saved.')}})}
+function crmTaskDlg(ref,edit){const list=ref||edit?[]:crmTargets(),t=edit?CRM.T.get(edit):null;if(edit&&!t)return;ref=t?t.ref:ref;
+ if(!ref&&!list.length)return toast('There is no customer you can add a task to.');
+ crmDlg(`<h2>${t?'Edit task':'New task'}</h2><form class="crm-f" id="fF">${tgtField(ref,list)}<label>What needs doing<input id="fX" maxlength="300" value="${esc(t?t.text:'')}" required></label>
+  <label>Due<input type="date" id="fD" value="${esc(t?t.due:todayISO())}" required></label>${t?'':'<label class="chk"><input type="checkbox" id="fP"> Private: only I can read it</label>'}
+  <p class="note" role="alert" style="margin:0"></p><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Save</button></div></form>`,d=>{
+  d.querySelector('#fF').onsubmit=e=>{e.preventDefault();const r=tgtPick(d,ref,list);if(!r)return crmErr(d,'Choose a customer or prospect from the list.');
+   crmSave('task',{id:t?t.id:crmId(),ref:r,text:d.querySelector('#fX').value.trim(),due:d.querySelector('#fD').value,status:t?t.status:'open',priv:t?t.priv:d.querySelector('#fP').checked?1:0});d.close();toast('Saved.')}})}
+function crmProsDlg(edit){const p=edit?CRM.P.get(edit):null;if(edit&&!p)return;
+ crmDlg(`<h2>${p?'Edit prospect':'New prospect'}</h2><p class="sub" style="font-size:14px">A farm you talk to that has not bought from DairyTop yet. Postcode and country put it on the map (at the postcode, not the exact farm).</p>
+  <form class="crm-f" id="fF"><label>Name of the farm<input id="fN" maxlength="120" value="${esc(p?p.name:'')}" required></label><p class="hint" id="fDup"></p>
+  <div class="two"><label>Country<select id="fC">${Object.entries(CRMCC).map(([k,l])=>`<option value="${k}"${(p?p.cc:'NL')===k?' selected':''}>${esc(l)}</option>`).join('')}</select></label><label>Postcode<input id="fZ" maxlength="16" value="${esc(p?p.pc:'')}"></label></div>
+  <label>Place<input id="fL" maxlength="80" value="${esc(p?p.place:'')}"></label>
+  <div class="two"><label>Phone<input id="fPh" type="tel" maxlength="40" value="${esc(p?p.phone:'')}"></label><label>Email<input id="fE" type="email" maxlength="120" value="${esc(p?p.email:'')}"></label></div>
+  <label>Status<select id="fSt">${opts(CRMS,p?p.status:'new')}</select></label><label>Notes<textarea id="fNo" maxlength="2000">${esc(p?p.notes:'')}</textarea></label>
+  <p class="note" role="alert" style="margin:0"></p><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Save</button></div></form>`,d=>{
+  const dup=()=>{const q=d.querySelector('#fN').value.trim().toLowerCase(),hit=q.length<3?[]:D.names.map((n,i)=>[n,i]).filter(([n])=>n&&n.toLowerCase().includes(q)).slice(0,4);
+   d.querySelector('#fDup').innerHTML=hit.length?'Already a customer? '+hit.map(([n,i])=>esc(n)+(byI.get(i)?' · '+esc(byI.get(i).pl):'')).join(' · '):''};
+  d.querySelector('#fN').oninput=dup;dup();
+  d.querySelector('#fF').onsubmit=e=>{e.preventDefault();const g=s=>d.querySelector(s).value.trim();if(!g('#fN'))return crmErr(d,'Enter the name of the farm.');
+   crmSave('prospect',{id:p?p.id:crmId(),name:g('#fN'),cc:g('#fC'),pc:g('#fZ'),place:g('#fL'),phone:g('#fPh'),email:g('#fE'),status:g('#fSt'),notes:g('#fNo')});d.close();toast('Saved.')}})}
+function crmLinkDlg(id){const p=CRM.P.get(id);if(!p)return;const list=[];D.ref.forEach((r,i)=>{if(r&&D.names[i]){const o=byI.get(i);list.push({ref:r,label:D.names[i]+(o&&o.pl?' · '+o.pl:'')})}});
+ crmDlg(`<h2>Link ${esc(p.name)} to a customer</h2><p class="sub" style="font-size:14px">Use this once Microfas has the new customer. The notes and tasks of the prospect move to that customer, and the prospect is marked as won.</p>
+  <form class="crm-f" id="fF">${tgtField('',list)}<p class="note" role="alert" style="margin:0"></p><div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn ghost" data-x>Cancel</button><button class="btn">Link</button></div></form>`,d=>{
+  d.querySelector('#fF').onsubmit=e=>{e.preventDefault();const r=tgtPick(d,'',list);if(!r)return crmErr(d,'Choose the customer from the list.');crmSend({op:'link',id,ref:r});d.close();toast('Linked.')}})}
+function crmProsCard(id){const p=CRM.P.get(id);if(!p)return;const ref='p:'+id,acts=actsOf(ref),ts=tasksOf(ref),w=!p.linked&&p.owner===ME;
+ crmDlg(`<h2>${esc(p.name)} <span class="tag t-sky">Prospect · ${esc(CRMS[p.status]||p.status)}</span></h2><p class="sub">${esc([p.pc,p.place,CRMCC[p.cc]].filter(Boolean).join(' · '))}${ADMIN?' · '+esc(p.owner):''}</p>
+  <p style="margin:8px 0">${p.phone?`<a class="cl" href="tel:${esc(p.phone.replace(/[^\d+]/g,''))}">${esc(p.phone)}</a> `:''}${p.email?`<a class="cl" href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:''}</p>${p.notes?`<p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(p.notes)}</p>`:''}
+  ${ts.length?`<h3>Open tasks</h3>${ts.map(t=>`<div>${dueTag(t.due)} ${esc(t.text)}</div>`).join('')}`:''}<h3>Contacts</h3>${acts.length?crmTimeline(acts,false):'<p class="sub">Nothing logged yet.</p>'}
+  <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px">${w?'<button class="btn sm" id="pcL">Log contact</button><button class="btn ghost sm" id="pcT">Add task</button><button class="btn ghost sm" id="pcE">Edit</button>':''}<button class="btn ghost sm" data-x>Close</button></div>`,d=>{
+  const go2=f=>()=>{d.close();f()};if(w){d.querySelector('#pcL').onclick=go2(()=>crmLogDlg(ref));d.querySelector('#pcT').onclick=go2(()=>crmTaskDlg(ref));d.querySelector('#pcE').onclick=go2(()=>crmProsDlg(id))}})}
+
+/* ---- pieces shared by the screens ---- */
+function crmTimeline(list,tools){return `<div class="crm-tl">${list.map(a=>`<div class="it${String(a.ref).startsWith('p:')?' p':''}"><div class="h"><b style="color:var(--ink)">${dl(a.date)}</b><span class="tag t-sky">${esc(CRMT[a.type]||a.type)}</span>${a.outcome?`<span>${esc(CRMO[a.outcome]||a.outcome)}</span>`:''}${a.priv?'<span class="tag t-amb">Private</span>':''}${a.by&&a.by!==ME?`<span>${esc(a.by)}</span>`:''}${a.pending?'<span>sending…</span>':''}${tools&&a.by===ME&&canWriteRef(a.ref)?`<a class="cl" data-ea="${esc(a.id)}">Edit</a><a class="cl" data-da="${esc(a.id)}">Delete</a>`:''}</div><p>${esc(a.summary)}</p></div>`).join('')}</div>`}
+function crmBind(el){bindCl(el);el.querySelectorAll('[data-ea]').forEach(b=>b.onclick=()=>crmLogDlg(null,b.dataset.ea));
+ el.querySelectorAll('[data-da]').forEach(b=>b.onclick=()=>{if(confirm('Delete this contact note?'))crmDel('activity',b.dataset.da)});
+ el.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{if(confirm('Delete this task?'))crmDel('task',b.dataset.dn)});
+ el.querySelectorAll('[data-done]').forEach(b=>b.onclick=()=>{const t=CRM.T.get(b.dataset.done);if(t)crmSave('task',{id:t.id,ref:t.ref,text:t.text,due:t.due,status:'done'})});
+ el.querySelectorAll('[data-et]').forEach(b=>b.onclick=()=>crmTaskDlg(null,b.dataset.et));
+ el.querySelectorAll('a.cl[data-p]').forEach(a=>a.onclick=()=>crmProsCard(a.dataset.p));
+ el.querySelectorAll('[data-log]').forEach(b=>b.onclick=()=>crmLogDlg(b.dataset.log||null))}
+const crmBanner=()=>CRM.state==='notready'?'<div class="alert a">The CRM starts after the next daily data update: the customer data does not carry customer ids yet. Nothing is lost; try again tomorrow morning.</div>':CRM.state==='error'?`<div class="alert">The CRM could not load${CRM.err?': '+esc(CRM.err):''}. Reload the page to try again.</div>`:CRM.state==='loading'?'<p class="sub">Loading your notes…</p>':CRM.out.length?`<div class="alert s">${CRM.out.length} change${CRM.out.length>1?'s':''} waiting to be sent${CRM.state==='offline'?'. You are offline; they are sent as soon as you are back online':''}.</div>`:CRM.state==='offline'?'<div class="alert s">Offline: showing the notes saved on this device.</div>':'';
+function crmTile(){crmBoot();if(CRM.state==='notready')return 'Starts after the next data update';if(!crmReady())return 'Loading…';const n=crmDue();return n?`${n} task${n>1?'s':''} due`:'No tasks due'}
+
+/* ---- the CRM screen ---- */
+V2.crm=el=>{crmSty();crmBoot();const tabs=[['today','Today'],['act','Contacts'],['pros','Prospects']];if(ADMIN)tabs.push(['team','Team']);if(!tabs.some(t=>t[0]===CRM.tab))CRM.tab='today';
+ const t0=todayISO(),open=cT().filter(t=>t.status==='open'),mine=open.filter(t=>t.owner===ME),over=mine.filter(t=>t.due<t0),dueT=mine.filter(t=>t.due===t0),wk=mine.filter(t=>t.due>t0&&t.due<=isoT(tOf(t0)+7)),mo=cA().filter(a=>a.date.slice(0,7)===t0.slice(0,7));
+ el.innerHTML=`<div class="lh"><div><h1>${over.length+dueT.length?`${over.length+dueT.length} task${over.length+dueT.length>1?'s':''} to do`:'CRM'}</h1><p class="sub">Log visits and calls, set a follow-up, and keep track of farms that are not customers yet.${ADMIN?' You see everyone\'s notes except private ones.':' Your notes are visible to you, Johan and Leon, unless you mark one private.'}</p></div>
+  <div class="filters"><button class="btn" id="cLog">Log a contact</button><button class="btn ghost" id="cTask" style="color:var(--ink)">New task</button><button class="btn ghost" id="cPros" style="color:var(--ink)">New prospect</button></div></div>${crmBanner()}
+  ${kpis([['Overdue',over.length,'your open tasks'],['Due today',dueT.length,'your open tasks'],['Next 7 days',wk.length,'your open tasks'],['Contacts this month',mo.length,ADMIN?'logged by everyone':'logged by you']])}
+  <div class="filters" style="margin-top:14px"><div class="seg" id="cTabs" style="background:var(--navy)">${tabs.map(t=>`<button data-t="${t[0]}" class="${t[0]===CRM.tab?'on':''}">${t[1]}</button>`).join('')}</div></div><div id="cBody"></div>`;
+ const body=$('#cBody');({today:crmToday,act:crmActs,pros:crmPros2,team:crmTeam})[CRM.tab](body);crmBind(el);
+ $('#cTabs').onclick=e=>{const b=e.target.closest('button');if(b){CRM.tab=b.dataset.t;V2.crm(el)}};
+ $('#cLog').onclick=()=>crmLogDlg();$('#cTask').onclick=()=>crmTaskDlg();$('#cPros').onclick=()=>crmProsDlg()};
+function crmToday(el){const t0=todayISO(),all=cT().filter(t=>t.status==='open'),who=CRM.tw,rows=(ADMIN&&who==='*'?all:all.filter(t=>t.owner===ME)).sort((a,b)=>a.due.localeCompare(b.due)),
+  grp=t=>t.due<t0?'Overdue':t.due===t0?'Today':t.due<=isoT(tOf(t0)+7)?'Next 7 days':'Later';let last='';
+ const sugg=(crmReady()?C.calls(60).filter(q=>{const ref=D.ref[q.c];return ref&&canWriteC(q.c)&&!actsOf(ref).some(a=>a.date>=isoT(tOf(t0)-30))}).sort((a,b)=>(byI.get(b.c)?.r12||0)-(byI.get(a.c)?.r12||0)).slice(0,8):[]);
+ el.innerHTML=`<div class="panel card"><div class="lh"><h2>Tasks</h2>${ADMIN?`<div class="filters"><select id="tWho" aria-label="Whose tasks"><option value="">My tasks</option><option value="*"${who==='*'?' selected':''}>Everyone's tasks</option></select></div>`:''}</div>
+  <div class="scroll"><table class="stack"><thead><tr><th>Due</th><th>Task</th><th>Customer</th>${ADMIN&&who==='*'?'<th>Owner</th>':''}<th></th></tr></thead><tbody>
+  ${rows.map(t=>{const g=grp(t),h=g!==last?`<tr class="grp"><td colspan="5">${g}</td></tr>`:'';last=g;return h+`<tr><td>${dueTag(t.due)}</td><td class="crm-sum">${esc(t.text)}${t.priv?' <span class="tag t-amb">Private</span>':''}</td><td>${refLink(t.ref)}</td>${ADMIN&&who==='*'?`<td>${esc(t.owner)}</td>`:''}<td><div class="crm-act">${t.owner===ME&&canWriteRef(t.ref)?`<button class="btn sm" data-done="${esc(t.id)}">Done</button><button class="btn ghost sm" data-et="${esc(t.id)}" style="color:var(--ink)">Edit</button><button class="btn ghost sm" data-dn="${esc(t.id)}" style="color:var(--ink)">Delete</button>`:''}</div></td></tr>`}).join('')||'<tr><td colspan="5" class="empty">No open tasks. Log a contact and set a follow-up to add one.</td></tr>'}
+  </tbody></table></div></div>
+  ${sugg.length?`<div class="panel card"><h2>Worth a contact</h2><p class="sub">Customers with no order for 60+ days and no contact logged in the last 30 days, biggest first.</p><div class="scroll"><table class="stack"><thead><tr><th>Customer</th><th class="n">Last order</th><th class="n">Days</th><th></th></tr></thead><tbody>${sugg.map(q=>`<tr><td>${cn(q.c)}</td><td class="n">${dl(q.last)}</td><td class="n">${NF.format(q.since)}</td><td><button class="btn sm" data-log="${esc(D.ref[q.c])}">Log contact</button></td></tr>`).join('')}</tbody></table></div></div>`:''}`;
+ if($('#tWho'))$('#tWho').onchange=e=>{CRM.tw=e.target.value;V2.crm($('#mc'))}}
+function crmActs(el){const f=CRM.aF,who=ADMIN?f.who:'';let rows=cA().filter(a=>(!f.type||a.type===f.type)&&(!who||a.by===who)&&(!f.q||(refName(a.ref)+' '+a.summary).toLowerCase().includes(f.q.toLowerCase()))).sort((a,b)=>b.date.localeCompare(a.date)||b.created.localeCompare(a.created));
+ const total=rows.length;if(!f.all)rows=rows.slice(0,100);const by=[...new Set(cA().map(a=>a.by))].sort();
+ el.innerHTML=`<div class="panel card"><div class="lh"><h2>Contacts</h2><div class="filters"><input type="search" id="aQ" placeholder="Search customer or note" value="${esc(f.q)}" aria-label="Search"><select id="aT" aria-label="Kind"><option value="">All kinds</option>${opts(CRMT,f.type)}</select>${ADMIN?`<select id="aW" aria-label="By"><option value="">Everyone</option>${by.map(v=>`<option${v===who?' selected':''}>${esc(v)}</option>`).join('')}</select>`:''}</div></div>
+  <div class="scroll"><table class="stack crm-sum"><thead><tr><th>Date</th><th>Customer</th><th>Kind</th><th>Outcome</th><th>Note</th>${ADMIN?'<th>By</th>':''}<th></th></tr></thead><tbody>
+  ${rows.map(a=>`<tr><td>${dl(a.date)}</td><td>${refLink(a.ref)}</td><td>${esc(CRMT[a.type]||a.type)}</td><td>${esc(CRMO[a.outcome]||'')}</td><td>${esc(a.summary)}${a.priv?' <span class="tag t-amb">Private</span>':''}</td>${ADMIN?`<td>${esc(a.by)}</td>`:''}<td>${a.by===ME&&canWriteRef(a.ref)?`<div class="crm-act"><a class="cl" data-ea="${esc(a.id)}">Edit</a><a class="cl" data-da="${esc(a.id)}">Delete</a></div>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No contacts logged yet.</td></tr>'}
+  </tbody></table></div>${total>rows.length?`<p class="note">Showing ${rows.length} of ${total}. <a class="cl" id="aAll">Show all</a></p>`:''}</div>`;
+ $('#aQ').onchange=e=>{f.q=e.target.value;V2.crm($('#mc'))};$('#aT').onchange=e=>{f.type=e.target.value;V2.crm($('#mc'))};if($('#aW'))$('#aW').onchange=e=>{f.who=e.target.value;V2.crm($('#mc'))};if($('#aAll'))$('#aAll').onclick=()=>{f.all=true;V2.crm($('#mc'))}}
+function crmPros2(el){const f=CRM.aF,rows=cP().filter(p=>!p.linked&&(ADMIN||p.owner===ME)).sort((a,b)=>a.name.localeCompare(b.name)),linked=cP().filter(p=>p.linked&&(ADMIN||p.owner===ME));
+ el.innerHTML=`<div class="panel card"><div class="lh"><h2>Prospects</h2><div class="filters"><button class="btn sm" id="pNew">New prospect</button></div></div>
+  <div class="scroll"><table class="stack"><thead><tr><th>Farm</th><th>Place</th><th>Status</th><th>Contact</th><th>Last contact</th><th>Next task</th>${ADMIN?'<th>Owner</th>':''}<th></th></tr></thead><tbody>
+  ${rows.map(p=>{const ref='p:'+p.id,la=actsOf(ref)[0],nt=tasksOf(ref)[0],w=p.owner===ME;return `<tr><td><a class="cl" data-p="${esc(p.id)}">${esc(p.name)}</a>${p.la==null?' <span class="sub" style="font-size:12.5px" title="No pin on the map: postcode or place not found">no pin</span>':''}</td><td>${esc([p.pc,p.place,p.cc].filter(Boolean).join(' · '))}</td><td><span class="tag t-sky">${esc(CRMS[p.status]||p.status)}</span></td>
+   <td>${p.phone?`<a class="cl" href="tel:${esc(p.phone.replace(/[^\d+]/g,''))}">${esc(p.phone)}</a><br>`:''}${p.email?`<a class="cl" href="mailto:${esc(p.email)}">${esc(p.email)}</a>`:''}</td><td>${la?dl(la.date):'—'}</td><td>${nt?`${dueTag(nt.due)}<br>${esc(nt.text)}`:'—'}</td>${ADMIN?`<td>${esc(p.owner)}</td>`:''}
+   <td><div class="crm-act">${w?`<button class="btn sm" data-log="${esc(ref)}">Log</button><button class="btn ghost sm" data-pe="${esc(p.id)}" style="color:var(--ink)">Edit</button>`:''}${ADMIN?`<button class="btn ghost sm" data-pl="${esc(p.id)}" style="color:var(--ink)">Link to customer</button>`:''}${w?`<button class="btn ghost sm" data-pd="${esc(p.id)}" style="color:var(--ink)">Delete</button>`:''}</div></td></tr>`}).join('')||'<tr><td colspan="8" class="empty">No prospects yet.</td></tr>'}
+  </tbody></table></div>${linked.length?`<p class="note">${linked.length} prospect${linked.length>1?'s':''} already became customers.</p>`:''}</div>`;
+ $('#pNew').onclick=()=>crmProsDlg();el.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>crmProsDlg(b.dataset.pe));el.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>crmLinkDlg(b.dataset.pl));
+ el.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{if(confirm('Delete this prospect and hide its notes?'))crmDel('prospect',b.dataset.pd)})}
+function crmTeam(el){const t0=todayISO(),from=isoT(tOf(t0)-30),vks=[...new Set(D.vkOfCust)].filter(v=>v&&!CHANNELS.includes(v)).sort(),A=cA(),T=cT().filter(t=>t.status==='open');
+ const shared=D.ref.map((r,i)=>[r,i]).filter(([r,i])=>r&&D.names[i]&&isChan(ownerOf(i))).sort((a,b)=>(byI.get(b[1])?.r12||0)-(byI.get(a[1])?.r12||0));
+ el.innerHTML=`<div class="panel card"><h2>Team</h2><p class="sub">What each verkoper logged. Private notes are not included.</p><div class="scroll"><table class="stack"><thead><tr><th>Verkoper</th><th class="n">Contacts, 30 days</th><th>Last contact</th><th class="n">Open tasks</th><th class="n">Overdue</th><th class="n">Prospects</th></tr></thead><tbody>
+  ${vks.map(v=>{const a=A.filter(x=>x.by===v),l=a.map(x=>x.date).sort().pop(),ot=T.filter(x=>x.owner===v);return `<tr><td>${esc(v)}</td><td class="n">${a.filter(x=>x.date>=from).length}</td><td>${l?dl(l):'—'}</td><td class="n">${ot.length}</td><td class="n">${ot.filter(x=>x.due<t0).length||'—'}</td><td class="n">${cP().filter(p=>p.owner===v&&!p.linked).length}</td></tr>`}).join('')}</tbody></table></div></div>
+  <div class="panel card"><h2>Customers with several verkopers or none</h2><p class="sub">Only Johan and Leon write notes on these. The verkopers listed are the ones linked to the customer in Microfas.</p><div class="scroll"><table class="stack"><thead><tr><th>Customer</th><th>Verkopers</th><th>Last contact</th><th class="n">Open tasks</th><th></th></tr></thead><tbody>
+  ${shared.slice(0,60).map(([r,i])=>{const la=actsOf(r)[0],reps=D.reps&&D.reps[i];return `<tr><td>${cn(i)}</td><td>${reps?esc(reps.join(', ')):`<span class="sub">${esc(ownerOf(i)||'Unassigned')}</span>`}</td><td>${la?`${dl(la.date)} · ${esc(la.by)}`:'—'}</td><td class="n">${tasksOf(r).length||'—'}</td><td><button class="btn sm" data-log="${esc(r)}">Log contact</button></td></tr>`}).join('')||'<tr><td colspan="5" class="empty">None.</td></tr>'}</tbody></table></div>${shared.length>60?`<p class="note">Showing the 60 biggest of ${shared.length}.</p>`:''}</div>`}
+
+/* ---- inside the visit briefing ---- */
+function crmBriefPaint(){const el=$('#crmB');if(!el||!D.ref||!crmReady())return;const c=briefC,ref=D.ref[c];if(!ref)return;
+ const acts=actsOf(ref),ts=tasksOf(ref),w=canWriteC(c),reps=ADMIN&&D.reps&&D.reps[c];
+ el.innerHTML=`<div class="lh"><h2>Contacts and follow-ups</h2>${w?`<div class="filters"><button class="btn sm" data-log="${esc(ref)}">Log contact</button><button class="btn ghost sm" id="cbT" style="color:var(--ink)">Add task</button></div>`:''}</div>
+  ${reps?`<p class="sub">Verkopers on this customer: <b>${esc(reps.join(', '))}</b></p>`:''}${!w&&!acts.length?'<p class="sub">No notes yet.</p>':''}
+  ${ts.length?`<h3>Open tasks</h3>${ts.map(t=>`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0">${dueTag(t.due)}<span>${esc(t.text)}</span>${t.owner===ME&&w?`<button class="btn sm" data-done="${esc(t.id)}">Done</button><a class="cl" data-et="${esc(t.id)}">Edit</a><a class="cl" data-dn="${esc(t.id)}">Delete</a>`:`<span class="sub">${esc(t.owner)}</span>`}</div>`).join('')}`:''}
+  ${acts.length?crmTimeline(acts.slice(0,12),true)+(acts.length>12?`<p class="note">${acts.length-12} older contacts are on the Contacts tab of the CRM.</p>`:''):w?'<p class="sub">Nothing logged for this customer yet.</p>':''}`;
+ crmBind(el);const b=el.querySelector('#cbT');if(b)b.onclick=()=>crmTaskDlg(ref)}
+function crmBrief(el){if(!D.ref||!D.ref[briefC])return;crmSty();crmBoot();let p=document.getElementById('crmB');if(!p){p=document.createElement('div');p.id='crmB';p.className='panel card';el.appendChild(p)}
+ if(!crmReady()){p.innerHTML=`<h2>Contacts and follow-ups</h2>${crmBanner()||'<p class="sub">Loading…</p>'}`;return}crmBriefPaint()}
+{const b0=V2.brief;V2.brief=el=>{b0(el);try{crmBrief(el)}catch(e){console.error('CRM',e)}}}
+
+/* ---- on the map: prospects as amber diamonds, and the last contact in the customer pane ---- */
+{const r0=renderMap;renderMap=function(){r0();try{crmPins()}catch(e){console.error('CRM',e)}};
+ const s0=side;side=function(){s0();try{crmSide()}catch(e){console.error('CRM',e)}};
+ const m0=V2.map;V2.map=el=>{m0(el);try{crmMapEvents()}catch(e){console.error('CRM',e)}}}
+let crmPh=[];
+function crmPins(){crmPh=[];if(!ctx||!cv||!document.body.contains(cv)||!crmReady())return;const sp=Math.sin(V.p);
+ for(const p of cP()){if(p.linked||p.la==null||p.lo==null||(!ADMIN&&p.owner!==ME)||(repF&&p.owner!==repF))continue;const m=merc(p.lo,p.la),q=proj(m[0],m[1]);if(q[0]<-20||q[0]>W+20||q[1]<-20||q[1]>H+20)continue;const r=7*Math.min(1.6,Math.max(.8,q[2]));
+  ctx.beginPath();ctx.moveTo(q[0],q[1]-r);ctx.lineTo(q[0]+r,q[1]);ctx.lineTo(q[0],q[1]+r);ctx.lineTo(q[0]-r,q[1]);ctx.closePath();ctx.fillStyle='#E5A93D';ctx.fill();ctx.lineWidth=1.8;ctx.strokeStyle='#fff';ctx.stroke();crmPh.push([q[0]-r,q[1]-r,q[0]+r,q[1]+r,p])}}
+const crmPick=(X,Y)=>{for(let i=crmPh.length-1;i>=0;i--){const h=crmPh[i];if(X>=h[0]&&X<=h[2]&&Y>=h[1]&&Y<=h[3])return h[4]}return null};
+function crmMapEvents(){if(!cv)return;let d0=null;
+ cv.addEventListener('pointermove',e=>{const r=cv.getBoundingClientRect(),X=e.clientX-r.left,Y=e.clientY-r.top;if(e.buttons||pick(X,Y))return;const p=crmPick(X,Y);if(p){showTip(e,`<b>${esc(p.name)}</b> <span class="m">prospect</span><br><span class="m">${esc([p.place,p.cc].filter(Boolean).join(' · '))}${ADMIN?' · '+esc(p.owner):''}</span><br>${esc(CRMS[p.status]||p.status)}`);cv.style.cursor='pointer'}});
+ cv.addEventListener('pointerdown',e=>{d0=[e.clientX,e.clientY]});
+ cv.addEventListener('pointerup',e=>{if(!d0||Math.hypot(e.clientX-d0[0],e.clientY-d0[1])>5)return;const r=cv.getBoundingClientRect(),X=e.clientX-r.left,Y=e.clientY-r.top;if(pick(X,Y))return;const p=crmPick(X,Y);if(p)crmProsCard(p.id)})}
+function crmSide(){const p=$('#pane');if(!p||tab!=='cust'||!crmReady()||!D.ref)return;const o=byI.get(sel);if(!o||!inS(o.i))return;const ref=D.ref[o.i];if(!ref)return;
+ const la=actsOf(ref)[0],nt=tasksOf(ref)[0];crmSty();p.insertAdjacentHTML('beforeend',`<div class="crm-pane"><h3>Contact</h3>${la?`<div class="it">Last contact ${dl(la.date)} · ${esc(CRMT[la.type])}${la.outcome?' · '+esc(CRMO[la.outcome]):''}<br><span class="m">${esc(la.summary.slice(0,140))}${la.summary.length>140?'…':''}</span></div>`:'<div class="it m">No contact logged yet.</div>'}${nt?`<div class="it">Next: ${esc(nt.text)} · ${dl(nt.due)}</div>`:''}
+  ${canWriteC(o.i)?'<div style="margin-top:8px"><button class="btn sm" id="sbLog">Log contact</button></div>':''}</div>`);const b=$('#sbLog');if(b)b.onclick=()=>crmLogDlg(ref)}
+
+/* ---- call list: the Called / Ordered / Lost buttons also leave a note in the CRM (one per customer per day) ---- */
+{const c0=V2.calls;V2.calls=el=>{c0(el);try{crmCallHook(el)}catch(e){console.error('CRM',e)}}}
+function crmCallHook(el){if(el.dataset.crmHook)return;el.dataset.crmHook='1';crmBoot();
+ el.addEventListener('click',e=>{const b=e.target.closest('.oc button');if(!b||!D.ref||!crmReady())return;const k=+b.parentElement.dataset.k,ref=D.ref[k];if(!ref||!canWriteC(k))return;
+  const id='oc-'+String(ref).replace(/[^A-Za-z0-9_-]/g,'').slice(0,20)+'-'+todayISO().replace(/-/g,''),v=outc[k],old=CRM.A.get(id);   // outc: the existing button state, already updated by its own handler
+  if(!v){if(old)crmDel('activity',id);return}
+  if(old&&old.by!==ME)return;
+  crmSave('activity',{id,ref,type:'call',date:todayISO(),outcome:v==='Ordered'?'order':v==='Lost'?'notinterested':'spoke',summary:'Call list: '+v,priv:0})})}
 
 /* ================= start ================= */
 /* ================= install as an app ================= */
